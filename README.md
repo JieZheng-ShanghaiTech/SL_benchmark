@@ -43,140 +43,63 @@ The following graph depicts the performance of the machine learning models acros
 
 | Method  | Paper Title | Article Link | Code Link |
 |---------|-------------|--------------|-----------|
-| GRSMF   | Predicting synthetic lethal interactions in human cancers using graph regularized self-representative matrix factorization      | [GRSMF](https://doi.org/10.1186/s12859-019-3197-3
-        
-        
-        
-        )| [GRSMF](https://github.com/lichenbiostat/GCATSL/tree/master/baseline%20methods/GRSMF) |
-| SL2MF   | SL<sup>2</sup>MF: Predicting Synthetic Lethality in Human Cancers via Logistic Matrix Factorization      | [SL2MF](https://doi.org/10.1109/tcbb.2019.2909908
-        
-        
-        
-        )| [SL2MF](https://github.com/stephenliu0423/SL$%5E2$MF) |
+| GRSMF   | Predicting synthetic lethal interactions in human cancers using graph regularized self-representative matrix factorization      | [GRSMF](https://doi.org/10.1186/s12859-019-3197-3)| [GRSMF](https://github.com/lichenbiostat/GCATSL/tree/master/baseline%20methods/GRSMF) |
+| SL2MF   | SL<sup>2</sup>MF: Predicting Synthetic Lethality in Human Cancers via Logistic Matrix Factorization      | [SL2MF](https://doi.org/10.1109/tcbb.2019.2909908)| [SL2MF](https://github.com/stephenliu0423/SL$%5E2$MF) |
 | CMFW    | Predicting synthetic lethal interactions using heterogeneous data sources      | [CMFW](https://doi.org/10.1093/bioinformatics/btz893
-        
-        
-        
-        )| [CMFW](https://github.com/lianyh/CMF-W) |
+)| [CMFW](https://github.com/lianyh/CMF-W) |
 | SLMGAE  | Prediction of Synthetic Lethal Interactions in Human Cancers Using Multi-View Graph Auto-Encoder      | [SLMGAE](https://doi.org/10.1109/jbhi.2021.3079302
-        
-        
-        
-        )| [SLMGAE](https://github.com/DiNg1011/SLMGAE) |
+)| [SLMGAE](https://github.com/DiNg1011/SLMGAE) |
 | NSF4SL  | NSF4SL: negative-sample-free contrastive learning for ranking synthetic lethal partner genes in human cancers      | [NSF4SL](https://doi.org/10.1093/bioinformatics/btac462
-        
-        
-        
-        )| [NSF4SL](https://github.com/JieZheng-ShanghaiTech/NSF4SL) |
+)| [NSF4SL](https://github.com/JieZheng-ShanghaiTech/NSF4SL) |
 | PTGNN   | Pre-training graph neural networks for link prediction in biomedical networks      | [PTGNN](https://doi.org/10.1093/bioinformatics/btac100
-        
-        
-        
-        )| [PTGNN](https://github.com/longyahui/PT-GNN) |
+)| [PTGNN](https://github.com/longyahui/PT-GNN) |
 | PiLSL   | PiLSL: pairwise interaction learning-based graph neural network for synthetic lethality prediction in human cancers      | [PiLSL](https://doi.org/10.1093/bioinformatics/btac476
-        
-        
-        
-        )| [PiLSL](https://github.com/JieZheng-ShanghaiTech/PiLSL) |
+)| [PiLSL](https://github.com/JieZheng-ShanghaiTech/PiLSL) |
 | KG4SL   | KG4SL: knowledge graph neural network for synthetic lethality prediction in human cancers      | [KG4SL](https://doi.org/10.1093/bioinformatics/btab271
-        
-        
-        
-        )| [KG4SL](https://github.com/JieZheng-ShanghaiTech/KG4SL) |
+)| [KG4SL](https://github.com/JieZheng-ShanghaiTech/KG4SL) |
 | DDGCN   | Dual-dropout graph convolutional network for predicting synthetic lethality in human cancers      | [DDGCN](https://doi.org/10.1093/bioinformatics/btaa211
-        
-        
-        
-        )| [DDGCN](https://github.com/CXX1113/Dual-DropoutGCN) |
+)| [DDGCN](https://github.com/CXX1113/Dual-DropoutGCN) |
 | GCATSL  | Graph contextualized attention network for predicting synthetic lethality in human cancers     | [GCATSL](https://doi.org/10.1093/bioinformatics/btab110
-        
-        
-        
-        )| [GCATSL](https://github.com/lichenbiostat/GCATSL) |
+)| [GCATSL](https://github.com/lichenbiostat/GCATSL) |
 | MGE4SL  | Predicting Synthetic Lethality in Human Cancers via Multi-Graph Ensemble Neural Network     | [MGE4SL](https://doi.org/10.1109/embc46164.2021.9630716
-        
-        
-        
-        )| [MGE4SL](https://github.com/JieZheng-ShanghaiTech/MGE4SL) |
+)| [MGE4SL](https://github.com/JieZheng-ShanghaiTech/MGE4SL) |
 
 ## Other SL prediction models
 ### Machine Learning-Based Methods
 | Method            | Paper Title | Article Link |
 |-------------------|-------------|--------------|
 | Paladugu et al.   | Mining protein networks for synthetic genetic interactions      | [Paladugu et al.](https://doi.org/10.1186/1471-2105-9-426
-        
-        
-        
-        )|
+)|
 | Pandey et al.     | An Integrative Multi-Network and Multi-Classifier Approach to Predict Genetic Interactions      | [Pandey et al.](https://doi.org/10.1371/journal.pcbi.1000928
-        
-        
-        
-        )|
+)|
 | MetaSL            | In Silico Prediction of Synthetic Lethality by Meta-Analysis of Genetic Interactions, Functions, and Pathways in Yeast and Human Cancer      | [MetaSL](https://doi.org/10.4137/cin.s14026
-        
-        
-        
-        )|
+)|
 | EXP2SL        | EXP2SL: A Machine Learning Framework for Cell-Line-Specific Synthetic Lethality Prediction      | [EXP2SL](https://doi.org/10.3389/fphar.2020.00112
-        
-        
-        
-        )|
+)|
 | DiscoverSL        | DiscoverSL: an R package for multi-omic data driven prediction of synthetic lethality in cancers      | [DiscoverSL](https://doi.org/10.1093/bioinformatics/bty673
-        
-        
-        
-        )|
+)|
 | Li et al.         | Identification of synthetic lethality based on a functional network by using machine learning algorithms      | [Li et al.](https://doi.org/10.1002/jcb.27395
-        
-        
-        
-        )|
+)|
 | SLant             | Predicting synthetic lethal interactions using conserved patterns in protein interaction networks      | [SLant](https://doi.org/10.1371/journal.pcbi.1006888
-        
-        
-        
-        )|
+)|
 | Wu et al.         | Synthetic Lethal Interactions Prediction Based on Multiple Similarity Measures Fusion      | [Wu et al.](https://doi.org/10.1007/s11390-021-0866-2
-        
-        
-        
-        )|
+)|
 | De Kegel et al.   | Comprehensive prediction of robust synthetic lethality between paralog pairs in cancer cell lines      | [De Kegel et al.](https://doi.org/10.1016/j.cels.2021.08.006
-        
-        
-        
-        )|
+)|
 | PARIS             | Uncovering cancer vulnerabilities by machine learning prediction of synthetic lethality     | [PARIS](https://doi.org/10.1186/s12943-021-01405-8
-        
-        
-        
-        )|
+)|
 | SBSL              | Overcoming selection bias in synthetic lethality prediction     | [SBSL](https://doi.org/10.1093/bioinformatics/btac523
-        
-        
-        
-        )|
+)|
 
 ### Deep Learning-Based Methods
 | Method       | Paper Title | Article Link |
 |--------------|-------------|--------------|
 | MVGCN    | MAGCN: A Multiple Attention Graph Convolution Networks for Predicting Synthetic Lethality     | [MVGCN](https://doi.org/10.1109/TCBB.2022.3221736
-        
-        
-        
-        )|
+)|
 | MVGCN-iSL    | Multi-view graph convolutional network for cancer cell-specific synthetic lethality prediction     | [MVGCN-iSL](https://doi.org/10.3389/fgene.2022.1103092
-        
-        
-        
-        )|
+)|
 | SLGNN        | SLGNN: Synthetic lethality prediction in human cancers based on factor-aware knowledge graph neural network     | [SLGNN](https://doi.org/10.1093/bioinformatics/btad015
-        
-        
-        
-        )|
+)|
 
 
 
