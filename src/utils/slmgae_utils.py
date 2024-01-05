@@ -89,9 +89,9 @@ def log(message):
 def load_data(knn=False, nnSize=0):
     adjs = []
     # pos_edge, neg_edge = load_SL_matrix()
-    adjs.append(load_dense_feature('../data/precessed_data/final_gosim_bp_from_r_9845.npy', knn=knn, nnSize=nnSize))
-    adjs.append(load_dense_feature('../data/precessed_data/final_gosim_cc_from_r_9845.npy', knn=knn, nnSize=nnSize))
-    adjs.append(load_sparse_features('../data/precessed_data/ppi_sparse_upper_matrix_without_sl_relation_9845.npz'))
+    adjs.append(load_dense_feature('../data/preprocessed_data/final_gosim_bp_from_r_9845.npy', knn=knn, nnSize=nnSize))
+    adjs.append(load_dense_feature('../data/preprocessed_data/final_gosim_cc_from_r_9845.npy', knn=knn, nnSize=nnSize))
+    adjs.append(load_sparse_features('../data/preprocessed_data/ppi_sparse_upper_matrix_without_sl_relation_9845.npz'))
     # adjs.append(load_sparse_features('/home/yimiaofeng/PycharmProjects/SLBench/scripts/clean_code/start_from_kg/ppi_sparse_upper_matrix_without_sl_relation_9845.npz'))
 
     return adjs

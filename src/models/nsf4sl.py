@@ -125,8 +125,7 @@ class SLDataset(Dataset):
             geneid2index[self.gene_id[i]] = i
         self.geneid2index = geneid2index
 
-        # kgemb = pd.read_csv('./data/kg_embed/entities.tsv', sep='\t', header=None)
-        kgemb = pd.read_csv('../data/precessed_data/entities.tsv', sep='\t', header=None)
+        kgemb = pd.read_csv('../data/preprocessed_data/nsf4sl_data/entities.tsv', sep='\t', header=None)
         for idx, row in kgemb.iterrows():
             geneid2index_kgemb[row[1]] = row[0]
         self.geneid2index_kgemb = geneid2index_kgemb
@@ -137,6 +136,7 @@ class SLDataset(Dataset):
     def __getitem__(self, index):
         gene1_id = int(self.sl_pair[index][0])
         gene2_id = int(self.sl_pair[index][1])
+
         gene1_feat = self.getFeat(gene1_id)
         gene2_feat = self.getFeat(gene2_id)
 

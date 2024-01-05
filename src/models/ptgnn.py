@@ -177,6 +177,8 @@ class Model:
             return logits
         else:
             self.final_embedding = self.model.encoder(embedding_proteins, self.bias_in)
+            print(embedding_proteins.shape)
+            print(self.final_embedding.shape)
             logits = self.model.decoder(self.final_embedding, self.num_nodes)
             return logits
 
@@ -214,7 +216,7 @@ class Model:
                 self.embedding_tokens = tf.compat.v1.get_variable("embedding", shape=[self.token_size, self.dim_embedding],
                                                         initializer=tf.random_normal_initializer(stddev=0.1))
         else:
-            init_emb=np.load('../data/precessed_data/ptgnn_pretraintrained_word_embedding.npy')
+            init_emb=np.load('../data/preprocessed_data/ptgnn_data/trained_word_embedding.npy')
             with tf.name_scope("token_embedding"):
                 self.embedding_tokens = tf.compat.v1.get_variable("embedding", initializer=init_emb)
 

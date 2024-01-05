@@ -72,7 +72,7 @@ class ChecktoSave():
         return all_metrics
         
 
-meta_table = pd.read_csv('../data/precessed_data/meta_table_9845.csv')
+meta_table = pd.read_csv('../data/preprocessed_data/meta_table_9845.csv')
 
 def get_id_map():
     # meta_table = pd.read_csv(
@@ -93,7 +93,7 @@ def sparse_matrix_from_adj(adj: np.array, num_node: int) -> sp.csr_matrix:
 
     return spm
 
-human_sl_pairs_df=pd.read_csv('../data/precessed_data/human_sl_9845.csv')
+human_sl_pairs_df=pd.read_csv('../data/preprocessed_data/human_sl_9845.csv')
 
 
 def cv1_all(kfold,num_node,train_rat,valid_rat,test_rat,training_rat,xtimes, negative_strategy, exp_data_path=None):
@@ -495,16 +495,16 @@ def get_kfold_data_pos_neg(kfold: int, num_node: int, train_rat: float, valid_ra
     xtimes = int(1/pos_neg)
 
 
-    exp_data_paths = ['../data/precessed_data/one_time_neg_index_exp.npy',
-                      '../data/precessed_data/five_time_neg_index_exp.npy',
-                      '../data/precessed_data/twenty_time_neg_index_exp.npy',
-                      '../data/precessed_data/fifty_time_neg_index_exp.npy',]
-    dep_data_paths = ['../data/precessed_data/one_time_neg_index_dep.npy',
-                      '../data/precessed_data/five_time_neg_index_dep.npy',
-                      '../data/precessed_data/twenty_time_neg_index_dep.npy',
-                      '../data/precessed_data/fifty_time_neg_index_dep.npy',]
-    exp_score_data_path = '../data/precessed_data/sorted_neg_ids_scores_exp.npy'
-    dep_score_data_path = '../data/precessed_data/sorted_neg_ids_scores_dep.npy'
+    exp_data_paths = ['../data/preprocessed_data/one_time_neg_index_exp.npy',
+                      '../data/preprocessed_data/five_time_neg_index_exp.npy',
+                      '../data/preprocessed_data/twenty_time_neg_index_exp.npy',
+                      '../data/preprocessed_data/fifty_time_neg_index_exp.npy',]
+    dep_data_paths = ['../data/preprocessed_data/one_time_neg_index_dep.npy',
+                      '../data/preprocessed_data/five_time_neg_index_dep.npy',
+                      '../data/preprocessed_data/twenty_time_neg_index_dep.npy',
+                      '../data/preprocessed_data/fifty_time_neg_index_dep.npy',]
+    exp_score_data_path = '../data/preprocessed_data/sorted_neg_ids_scores_exp.npy'
+    dep_score_data_path = '../data/preprocessed_data/sorted_neg_ids_scores_dep.npy'
 
     if xtimes == 1:
         exp_data_path = exp_data_paths[0]
@@ -698,7 +698,7 @@ def cal_metrics(score_mat, pos_index, neg_index, seen_index=None):
     pos_matrix=pos_matrix+pos_matrix.T
 
     auroc_p, f1_p, aupr_p = 0, 0, 0
-
+    
     pos_s = score_matrix[pos_index[:, 0], pos_index[:, 1]]
     neg_s = score_matrix[neg_index[:, 0], neg_index[:, 1]]
     
@@ -760,9 +760,8 @@ def cal_metrics(score_mat, pos_index, neg_index, seen_index=None):
 
 
 def load_kg(neighbor_sample_size):
-    relation_id = pd.read_csv('../data/precessed_data/relation_id.csv')
-    kg_wo_sl = pd.read_csv('../data/precessed_data/fin_kg_wo_sl_9845.csv')
-    sl_pairs = pd.read_csv('../data/precessed_data/human_sl_9845.csv')
+    kg_wo_sl = pd.read_csv('../data/preprocessed_data/fin_kg_wo_sl_9845.csv')
+    sl_pairs = pd.read_csv('../data/preprocessed_data/human_sl_9845.csv')
 
     n_node_a = len(set(sl_pairs['unified_id_A']))
     n_node_b = len(set(sl_pairs['unified_id_B']))
@@ -808,28 +807,28 @@ def load_kg(neighbor_sample_size):
     return n_node_a, n_node_b, n_entity, n_relations, adj_entity, adj_relation
 
 
-def save_epoch_result(raw_res, model_name, p_n):
-    col_names = [
-        'Model',
-        'pos/neg',
-        'AUROC',
-        'F1',
-        'AUPR',
-        'NDCG@10',
-        'NDCG@20',
-        'NDCG@50',
-        'Recall@10',
-        'Recall@20',
-        'Recall@50',
-        'Precision@10',
-        'Precision@20',
-        'Precision@50'
-    ]
-    epoch_res = pd.DataFrame(columns=col_names)
-    for res in raw_res:
-        res = [model_name, str(p_n)] + list(np.hstack(res))
-        row = pd.DataFrame(np.asarray(res).reshape(1, -1), columns=col_names)
-        epoch_res = pd.concat([epoch_res, row])
+# def save_epoch_result(raw_res, model_name, p_n):
+#     col_names = [
+#         'Model',
+#         'pos/neg',
+#         'AUROC',
+#         'F1',
+#         'AUPR',
+#         'NDCG@10',
+#         'NDCG@20',
+#         'NDCG@50',
+#         'Recall@10',
+#         'Recall@20',
+#         'Recall@50',
+#         'Precision@10',
+#         'Precision@20',
+#         'Precision@50'
+#     ]
+#     epoch_res = pd.DataFrame(columns=col_names)
+#     for res in raw_res:
+#         res = [model_name, str(p_n)] + list(np.hstack(res))
+#         row = pd.DataFrame(np.asarray(res).reshape(1, -1), columns=col_names)
+#         epoch_res = pd.concat([epoch_res, row])
 
 # GCATSL
 def normalize_features(feat):
@@ -845,19 +844,19 @@ def load_gcatsl_features():
     pca = PCA(n_components=128)
     scaler = MinMaxScaler(feature_range=(0, 1))
 
-    ppi_spm = sp.load_npz('../data/precessed_data/ppi_sparse_upper_matrix_without_sl_relation_9845.npz')
+    ppi_spm = sp.load_npz('../data/preprocessed_data/ppi_sparse_upper_matrix_without_sl_relation_9845.npz')
     ppi_spm = ppi_spm + ppi_spm.T
     ppi_spm = ppi_spm.toarray()
     ppi_spm = pca.fit_transform(ppi_spm)
     ppi_spm = scaler.fit_transform(ppi_spm)
     ppi_spm = normalize_features(ppi_spm)
-    go_sim = np.load('../data/precessed_data/final_gosim_bp_from_r_9845.npy')
+    go_sim = np.load('../data/preprocessed_data/final_gosim_bp_from_r_9845.npy')
     # go_sim = go_sim + go_sim.T
     # go_sim = go_sim.toarray()
     go_sim = pca.fit_transform(go_sim)
     go_sim = scaler.fit_transform(go_sim)
     go_sim = normalize_features(go_sim)
-    go_sim_cc = np.load('../data/precessed_data/final_gosim_cc_from_r_9845.npy')
+    go_sim_cc = np.load('../data/preprocessed_data/final_gosim_cc_from_r_9845.npy')
     # go_sim_cc = go_sim_cc + go_sim_cc.T
     # go_sim_cc = go_sim_cc.toarray()
     go_sim_cc = pca.fit_transform(go_sim_cc)
@@ -893,29 +892,29 @@ def array2coo(S, t=0):
 
     return coo_matrix
 
-def load_slmgae_feature(knn, nn_size):
-    feature1 = np.load('./data/precessed_data/final_gosim_bp_from_r_9845.npy')
-    # feature1 = sp.load_npz('./data/precessed_data/gosim_bp_upper_tri_spm_9845.npz')
-    # feature1 = feature1 + feature1.T
-    if knn == True:
-        feature1 = build_KNN_mateix(feature1, nn_size=nn_size)
-    feature1 = feature1 + feature1.T
-    feature1 = array2coo(feature1)
+# def load_slmgae_feature(knn, nn_size):
+#     feature1 = np.load('./data/preprocessed_data/final_gosim_bp_from_r_9845.npy')
+#     # feature1 = sp.load_npz('./data/preprocessed_data/gosim_bp_upper_tri_spm_9845.npz')
+#     # feature1 = feature1 + feature1.T
+#     if knn == True:
+#         feature1 = build_KNN_mateix(feature1, nn_size=nn_size)
+#     feature1 = feature1 + feature1.T
+#     feature1 = array2coo(feature1)
 
-    feature2 = np.load('./data/precessed_data/final_gosim_cc_from_r_9845.npy')
-    # feature1 = sp.load_npz('./data/precessed_data/gosim_cc_upper_tri_spm_9845.npz')
-    # feature2 = feature2 + feature2.T
-    if knn == True:
-        feature2 = build_KNN_mateix(feature2, nn_size=nn_size)
-    feature2 = feature2 + feature2.T
-    feature2 = array2coo(feature2)
+#     feature2 = np.load('./data/preprocessed_data/final_gosim_cc_from_r_9845.npy')
+#     # feature1 = sp.load_npz('./data/preprocessed_data/gosim_cc_upper_tri_spm_9845.npz')
+#     # feature2 = feature2 + feature2.T
+#     if knn == True:
+#         feature2 = build_KNN_mateix(feature2, nn_size=nn_size)
+#     feature2 = feature2 + feature2.T
+#     feature2 = array2coo(feature2)
 
-    feature3 = np.load('./data/precessed_data/ppi_sparse_upper_matrix_without_sl_relation_9845.npy')
-    # feature3 = sp.load_npz('./data/precessed_data/ppi_sparse_upper_matrix_without_sl_relation_9845.npz')
-    # feature3 = feature3 + feature3.T
-    # feature3 = feature3.tocoo()
-    feature3 = feature3
+#     feature3 = np.load('./data/preprocessed_data/ppi_sparse_upper_matrix_without_sl_relation_9845.npy')
+#     # feature3 = sp.load_npz('./data/preprocessed_data/ppi_sparse_upper_matrix_without_sl_relation_9845.npz')
+#     # feature3 = feature3 + feature3.T
+#     # feature3 = feature3.tocoo()
+#     feature3 = feature3
 
-    adjs_orig = [feature1, feature2, feature3]
+#     adjs_orig = [feature1, feature2, feature3]
 
-    return adjs_orig
+#     return adjs_orig

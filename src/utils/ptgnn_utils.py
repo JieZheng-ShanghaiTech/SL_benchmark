@@ -100,18 +100,13 @@ def sample_mask(idx, l):
 
 
 def load_data():
-    # labels1 = np.loadtxt("data/adj_ppi.txt")
-    labels1 = np.load("../data/precessed_data/ppi_inter_arr.npy",allow_pickle=True)
-    labels2 = np.load("../data/precessed_data/go_inter_arr.npy",allow_pickle=True)
-    # labels2 = np.loadtxt("data/adj_go.txt")
 
-    # interaction1 = sio.loadmat('data/graph_ppi.mat')
-    interaction1 = np.load('../data/precessed_data/all_ppi_dense_sym_20398.npy')
-    # interaction1 = interaction1['PPI']
-
-    # interaction2 = sio.loadmat('data/graph_go.mat')
-    interaction2 = np.load('../data/precessed_data/all_go_inter_dense_50_20398.npy')
-    # interaction2 = interaction2['interaction']
+    labels1 = np.load("../data/preprocessed_data/ptgnn_data/ppi_inter_arr.npy",allow_pickle=True)
+    labels2 = np.load("../data/preprocessed_data/ptgnn_data/go_inter_arr.npy",allow_pickle=True)
+    
+    interaction1 = np.load('../data/preprocessed_data/ptgnn_data/all_ppi_dense_sym_20398.npy')
+    
+    interaction2 = np.load('../data/preprocessed_data/ptgnn_data/all_go_inter_dense_50_20398.npy')
 
     logits_train1 = interaction1
     logits_train1 = logits_train1.reshape([-1, 1])
@@ -127,9 +122,8 @@ def load_data():
 
     interaction2 = interaction2 + np.eye(interaction2.shape[0])
     interaction2 = sp.csr_matrix(interaction2)
-
-    # word_matrix = np.loadtxt("data/sequence_to_word_matrix.txt")
-    word_matrix = np.load("../data/precessed_data/ptgnn_encod_by_word_20398_800.npy")
+    
+    word_matrix = np.load("../data/preprocessed_data/ptgnn_data/ptgnn_encod_by_word_20398_800.npy")
     word_matrix = word_matrix[list(range(word_matrix.shape[0])), :600]
     word_matrix = word_matrix.astype(np.int32)
 
@@ -137,18 +131,15 @@ def load_data():
 
 
 def load_data_for_fine_tuning(train_arr, test_arr):
-    # labels = np.loadtxt("data/SynLethDB/adj.txt")
-    labels = pd.read_csv('../data/precessed_data/human_sl_9845.csv')
+    labels = pd.read_csv('../data/preprocessed_data/human_sl_9845.csv')
     labels = np.asarray(labels[['unified_id_A','unified_id_B']])
     labels = np.hstack([labels, np.ones((labels.shape[0], 1))])
     num_node = 9845
 
-    # logits_test = sp.csr_matrix((labels[test_arr, 2], (labels[test_arr, 0] - 1, labels[test_arr, 1] - 1)),
     logits_test = sp.csr_matrix((labels[test_arr, 2], (labels[test_arr, 0], labels[test_arr, 1])),
                                 shape=(num_node, num_node)).toarray()
     logits_test = logits_test.reshape([-1, 1])
 
-    # logits_train = sp.csr_matrix((labels[train_arr, 2], (labels[train_arr, 0] - 1, labels[train_arr, 1] - 1)),
     logits_train = sp.csr_matrix((labels[train_arr, 2], (labels[train_arr, 0], labels[train_arr, 1])),
                                  shape=(num_node, num_node)).toarray()
     logits_train = logits_train + logits_train.T
@@ -161,7 +152,7 @@ def load_data_for_fine_tuning(train_arr, test_arr):
     interaction = interaction + np.eye(interaction.shape[0])
     interaction = sp.csr_matrix(interaction)
 
-    word_matrix = np.loadtxt("../data/precessed_data/ptgnn_encod_by_word_sl_9845_800.npy")
+    word_matrix = np.loadtxt("../data/preprocessed_data/ptgnn_data/ptgnn_encod_by_word_sl_9845_800.npy")
 
     return interaction, logits_train, logits_test, train_mask, test_mask, labels, word_matrix
 

@@ -17,7 +17,7 @@ tf.compat.v1.set_random_seed(456)
 
 cuda_device='/gpu:0'
 
-def train_ptgnn(parameters,pos_samples, neg_samples):
+def train_ptgnn(parameters,pos_samples, neg_samples, mode=None, save_mat=False):
     graph_train_pos_kfold, graph_test_pos_kfold, train_pos_kfold, test_pos_kfold = pos_samples
     graph_train_neg_kfold, graph_test_neg_kfold, train_neg_kfold, test_neg_kfold = neg_samples
 
@@ -27,6 +27,9 @@ def train_ptgnn(parameters,pos_samples, neg_samples):
     p_n=parameters['pos_neg']
     d_s=parameters['division_strategy']
     n_s = parameters['negative_strategy']
+    if mode=='final_res':
+        kfold=1
+        p_n = d_s = n_s = 'final_res'
     
     # tensorflow config
     config = tf.compat.v1.ConfigProto()
@@ -51,13 +54,14 @@ def train_ptgnn(parameters,pos_samples, neg_samples):
         logits_test = graph_test_pos_kfold[fold_num].toarray().reshape([-1, 1])
         train_mask = np.array(logits_train[:, 0], dtype=np.bool).reshape([-1, 1])
         test_mask = np.array(logits_test[:, 0], dtype=np.bool).reshape([-1, 1])
-        word_matrix = np.load("../data/precessed_data/ptgnn_encod_by_word_sl_9845_800.npy")
+        word_matrix = np.load("../data/preprocessed_data/ptgnn_data/ptgnn_encod_by_word_sl_9845_800.npy")
         word_matrix = word_matrix[list(range(word_matrix.shape[0])), :600]
         word_matrix = word_matrix.astype(np.int32)
 
         biases = preprocess_graph(interaction)
         # save_path = "/home/yimiaofeng/PycharmProjects/SLBench/Bench/check_points/ptgnn/model.ckpt"
         model = Model(do_train=False)
+        
         # saver = tf.train.Saver()
         init_op = tf.group(tf.compat.v1.global_variables_initializer(), tf.compat.v1.local_variables_initializer())
         
@@ -86,7 +90,7 @@ def train_ptgnn(parameters,pos_samples, neg_samples):
             score_mat=acc_tr.reshape((num_node,num_node))
             train_metrics = cal_metrics(score_mat, train_pos_kfold[fold_num], train_neg_kfold[fold_num])
             wandb.log({
-                    'train_auc':train_metrics[0],'train_aupr':train_metrics[2],'train_f1':train_metrics[1],
+                    'train_auc':train_metrics[0],'train_f1':train_metrics[1],'train_aupr':train_metrics[2],
                     'train_N10':train_metrics[3],'train_N20':train_metrics[4],'train_N50':train_metrics[5],
                     'train_R10':train_metrics[6],'train_R20':train_metrics[7],'train_R50':train_metrics[8],
                     'train_P10':train_metrics[9],'train_P20':train_metrics[10],'train_P50':train_metrics[11],
@@ -97,22 +101,27 @@ def train_ptgnn(parameters,pos_samples, neg_samples):
             
             test_metrics = cal_metrics(score_mat, test_pos_kfold[fold_num], test_neg_kfold[fold_num],train_pos_kfold[fold_num])
             wandb.log({
-                    'test_auc':test_metrics[0],'test_aupr':test_metrics[2],'test_f1':test_metrics[1],
+                    'test_auc':test_metrics[0],'test_f1':test_metrics[1],'test_aupr':test_metrics[2],
                     'test_N10':test_metrics[3],'test_N20':test_metrics[4],'test_N50':test_metrics[5],
                     'test_R10':test_metrics[6],'test_R20':test_metrics[7],'test_R50':test_metrics[8],
                     'test_P10':test_metrics[9],'test_P20':test_metrics[10],'test_P50':test_metrics[11],
                     'test_M10':test_metrics[12],'test_M20':test_metrics[13],'test_M50':test_metrics[14],
                 })
-            if checktosave.update_classify(fold_num, epoch, np.asarray([test_metrics[0], test_metrics[2], test_metrics[1]])):
-                print('Saving score matrix ...')
-                if not os.path.exists(f'../results/{n_s}_score_mats/ptgnn'):
-                    os.mkdir(f'../results/{n_s}_score_mats/ptgnn')
-                path = f'../results/{n_s}_score_mats/ptgnn/ptgnn_fold_{fold_num}_pos_neg_{p_n}_{d_s}_{n_s}_classify.npy'
-                checktosave.save_mat(path, score_mat)
-            if checktosave.update_ranking(fold_num, epoch, test_metrics[3:]):
-                print('Saving score matrix ...')
-                path = f'../results/{n_s}_score_mats/ptgnn/ptgnn_fold_{fold_num}_pos_neg_{p_n}_{d_s}_{n_s}_ranking.npy'
-                checktosave.save_mat(path, score_mat)
+            
+            if save_mat:
+                if checktosave.update_classify(fold_num, epoch, np.asarray([test_metrics[0], test_metrics[2], test_metrics[1]])):
+                    # print('Saving score matrix ...')
+                    if not os.path.exists(f'../results/{n_s}_score_mats/ptgnn'):
+                        os.makedirs(f'../results/{n_s}_score_mats/ptgnn')
+                    path = f'../results/{n_s}_score_mats/ptgnn/ptgnn_fold_{fold_num}_pos_neg_{p_n}_{d_s}_{n_s}_classify.npy'
+                    checktosave.save_mat(path, score_mat)
+                if checktosave.update_ranking(fold_num, epoch, test_metrics[3:]):
+                    # print('Saving score matrix ...')
+                    path = f'../results/{n_s}_score_mats/ptgnn/ptgnn_fold_{fold_num}_pos_neg_{p_n}_{d_s}_{n_s}_ranking.npy'
+                    checktosave.save_mat(path, score_mat)
+            else:
+                checktosave.update_classify(fold_num, epoch, np.asarray([test_metrics[0], test_metrics[2], test_metrics[1]]))
+                checktosave.update_ranking(fold_num, epoch, test_metrics[3:])
                 
             print(test_metrics)
         sess.close()
@@ -129,7 +138,7 @@ def train_ptgnn_pre():
 
     biases1 = preprocess_graph(interaction1)
     biases2 = preprocess_graph(interaction2)
-    save_path = "../data/precessed_data/ptgnn_pretrain/model.ckpt"
+    save_path = "../data/preprocessed_data/ptgnn_data/model.ckpt"
     model = Model()
     saver = tf.train.Saver()
     init_op = tf.group(tf.compat.v1.global_variables_initializer(), tf.compat.v1.local_variables_initializer())
@@ -151,7 +160,7 @@ def train_ptgnn_pre():
             _, loss_value_tr, acc_tr, emb = sess.run([model.train_op, model.loss, model.accuracy, model.embedding_tokens], feed_dict=fd)
             print('Epoch: %04d | Training: loss = %.5f, acc = %.5f, time = %.5f' % ((epoch + 1), loss_value_tr, acc_tr, time.time() - t))
         saver.save(sess, save_path)
-        np.save('../data/precessed_data/ptgnn_pretrain/trained_word_embedding.npy', emb)
+        np.save('../data/preprocessed_data/ptgnn_data/trained_word_embedding.npy', emb)
         sess.close()
 
 

@@ -199,7 +199,7 @@ class Trainer():
             time_elapsed = time.time() - time_start
             print(f'Epoch {epoch} with loss: {train_loss}, training auc: {train_auc}, training aupr: {train_aupr}, weight_norm: {weight_norm} in {time_elapsed}')
 
-            np.save('../data/precessed_data/pilsl_database/ke_embed.npy', self.graph_classifier.gnn.embed.cpu().tolist())
+            np.save('../data/preprocessed_data/pilsl_data/pilsl_database/ke_embed.npy', self.graph_classifier.gnn.embed.cpu().tolist())
             # early stop
             if self.not_improved_count > self.params['early_stop']:
                 print('EARLY STOP HAPPEN!')
@@ -416,23 +416,23 @@ class SubgraphDataset(Dataset):
         self.db_name = self.main_env.open_db(db_name.encode())
         self.node_features, self.kge_entity2id = (None, None)
         # self.file_name = file_name
-        triple_file = '../data/precessed_data/fin_kg_wo_sl_9845.csv'
-        self.entity_type = np.loadtxt('../data/precessed_data/pilsl_unified_etype_9845.csv')
+        triple_file = '../data/preprocessed_data/fin_kg_wo_sl_9845.csv'
+        self.entity_type = np.loadtxt('../data/preprocessed_data/pilsl_data/pilsl_unified_etype_9845.csv')
 
-        self.pair_to_dbindex = np.load('../data/precessed_data/pilsl_pair_to_dbindex.npy', allow_pickle=True).item()
+        self.pair_to_dbindex = np.load('../data/preprocessed_data/pilsl_data/pilsl_pair_to_dbindex.npy', allow_pickle=True).item()
 
         if not ssp_graph:
-            if os.path.exists('../data/precessed_data/pilsl_database/processed_file.npy'):
-                ssp_graph, id2entity, id2relation, rel = np.load('../data/precessed_data/pilsl_database/processed_file.npy',allow_pickle=True)
+            if os.path.exists('../data/preprocessed_data/pilsl_data/pilsl_database/processed_file.npy'):
+                ssp_graph, id2entity, id2relation, rel = np.load('../data/preprocessed_data/pilsl_data/pilsl_database/processed_file.npy',allow_pickle=True)
             else:
                 ssp_graph, __, __, __, id2entity, id2relation, rel = process_files(raw_data_paths, triple_file,
                                                                                included_relations)
-                np.save('../data/precessed_data/pilsl_database/processed_file.npy',[ssp_graph, id2entity, id2relation, rel])
+                np.save('../data/preprocessed_data/pilsl_data/pilsl_database/processed_file.npy',[ssp_graph, id2entity, id2relation, rel])
 
             self.aug_num_rels = len(ssp_graph)
             # self.graph = ssp_multigraph_to_dgl(ssp_graph)
-            if os.path.exists('../data/precessed_data/pilsl_database/pilsl_ssp_graph.bin'):
-                loading_graph = load_graphs('../data/precessed_data/pilsl_database/pilsl_ssp_graph.bin')[0][0]
+            if os.path.exists('../data/preprocessed_data/pilsl_data/pilsl_database/pilsl_ssp_graph.bin'):
+                loading_graph = load_graphs('../data/preprocessed_data/pilsl_data/pilsl_database/pilsl_ssp_graph.bin')[0][0]
                 spm_graph = loading_graph.adjacency_matrix_scipy()
                 self.graph = dgl.DGLGraph()
                 self.graph.from_scipy_sparse_matrix(spm_graph)
@@ -440,7 +440,7 @@ class SubgraphDataset(Dataset):
                 # self.graph._graph.is_readonly = False
             else:
                 self.graph = ssp_multigraph_to_dgl(ssp_graph)
-                save_graphs('../data/precessed_data/pilsl_database/pilsl_ssp_graph.bin', self.graph)
+                save_graphs('../data/preprocessed_data/pilsl_data/pilsl_database/pilsl_ssp_graph.bin', self.graph)
             self.ssp_graph = ssp_graph
         else:
             self.aug_num_rels = len(ssp_graph)

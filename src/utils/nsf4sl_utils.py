@@ -20,16 +20,16 @@ cuda_device=torch.device('cuda:0')
 def loadKGData():
     print('Loading TransE data...')
     # gene_id = np.load('./data/sl_data/gene_id.npy')
-    gene_id = pd.read_csv('../data/precessed_data/meta_table_9845.csv')
+    gene_id = pd.read_csv('../data/preprocessed_data/meta_table_9845.csv')
     gene_id = np.asarray(gene_id['unified_id'])
     # kgemb_data = np.load('./data/kg_embed/kg_TransE_l2_entity.npy') # kg id
-    kgemb_data = np.load('../data/precessed_data/kg_TransE_l2_entity.npy') # kg id
+    kgemb_data = np.load('../data/preprocessed_data/kg_TransE_l2_entity.npy') # kg id
     return kgemb_data, gene_id
 
 # map genes to continuous ids
 def map_genes():
     # sl_df = pd.read_csv('./data/sl_data/sl_pair_processed.csv', header=None)
-    sl_df = pd.read_csv('../precessed_data/human_sl_9845.csv')
+    sl_df = pd.read_csv('../data/preprocessed_data/human_sl_9845.csv')
     sl_df = sl_df[['unified_id_A', 'unified_id_B']]
     set_IDa = set(sl_df['unified_id_A'])
     set_IDb = set(sl_df['unified_id_B'])

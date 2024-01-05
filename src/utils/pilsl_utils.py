@@ -29,7 +29,7 @@ torch.cuda.manual_seed_all(456)
 
 def generate_subgraph_datasets(params, splits=['train'], saved_relation2id=None, max_label_value=None):
     print('loading data')
-    triple_file = '../data/precessed_data/fin_kg_wo_sl_9845.csv'  # raw kg triple
+    triple_file = '../data/preprocessed_data/fin_kg_wo_sl_9845.csv'  # raw kg triple
     print('load finish')
     # triple_file = 'data/SynLethKG/kg2id.txt'  # raw kg triple
 
@@ -248,7 +248,7 @@ def links2subgraphs(A, graphs, params, max_label_value=None):
         pairs = []
         # intialize_worker_feng(A, params, max_label_value, three_hop_nb_mat, three_hop_dict)
         print(f'{len(links)} subgraph to be build')
-        gene_neib=np.load('../data/precessed_data/pilsl_3hop_neib.npy', allow_pickle=True).item()
+        gene_neib=np.load('../data/preprocessed_data/pilsl_data/pilsl_3hop_neib.npy', allow_pickle=True).item()
         # args_ = zip(range(len(links)), links, g_labels)
         # datum_dict=dict()
         # extract the node subgraph
@@ -289,7 +289,7 @@ def links2subgraphs(A, graphs, params, max_label_value=None):
 
         # gene_set is the set of the unified kg_id of the genes (kg_id less than about 54000)
         gene_set = list(range(9845))
-        if not os.path.exists(f'../data/precessed_data/pilsl_3hop_neib.npy'):
+        if not os.path.exists(f'../data/preprocessed_data/pilsl_data/pilsl_3hop_neib.npy'):
             n_hop_gene_nei_set = {}
             index = 1
             for root_gene in tqdm(gene_set):
@@ -298,7 +298,7 @@ def links2subgraphs(A, graphs, params, max_label_value=None):
                 # print(index)
                 index = index + 1
 
-            np.save(f'../data/precessed_data/pilsl_3hop_neib.npy', n_hop_gene_nei_set)
+            np.save(f'../data/preprocessed_data/pilsl_data/pilsl_3hop_neib.npy', n_hop_gene_nei_set)
 
         print('extraction_helper running')
 
