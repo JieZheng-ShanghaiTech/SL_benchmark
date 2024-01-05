@@ -127,7 +127,7 @@ Follow these steps to download and prepare the training data:
 
 > \[!IMPORTANT]
 >
-> We have prepared two versions of data, namely the complete version and the version without PiLSL database.
+> We have prepared two versions of data, namely the complete version (`data.tar.gz`) and the version without PiLSL database (`data_simple.tar.gz`).
 > The decompressed size of the complete version is about 90GB, while the decompressed size of the version without PiLSL database is about 22GB.
 > (Due to the extremely time-consuming database construction process, it is recommended to download the complete version of the data.
 > However, the data version without PiLSL database can successfully run all 10 models except PiLSL.)
