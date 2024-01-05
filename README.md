@@ -125,23 +125,28 @@ Follow these steps to download and prepare the training data:
 >
 > The actual command will depend on how you're downloading files from Google Drive.
 
-**Step 2:** Verify the integrity of the downloaded files.
-```bash
-md5sum -c md5sum.txt
-```
-**Step 3:** Combine the parts into a single archive.
-```bash
-cat data_split* > data.tar.gz
-```
-**Step 4:** Extract the dataset (the extracted folder will be approximately 90GB in size).
-```bash
-tar -xzvf data.tar.gz
-```
-
 > \[!IMPORTANT]
 >
-> The extracted folder will be approximately 90GB in size.
-> Please ensure there is sufficient disk space.
+> We have prepared two versions of data, namely the complete version and the version without PiLSL database.
+> The decompressed size of the complete version is about 90GB, while the decompressed size of the version without PiLSL database is about 22GB.
+> (Due to the extremely time-consuming database construction process, it is recommended to download the complete version of the data.
+> However, the data version without PiLSL database can successfully run all 10 models except PiLSL.)
+
+**Step 2:** Combine the parts into a single archive.
+```bash
+cat data_a* > data.tar.gz # Complete version
+# cat data_simple_* > data_simple.tar.gz # The version without PiLSL database
+```
+**Step 3:** Verify the integrity of the downloaded files.
+```bash
+md5sum -c data.md5
+# md5sum -c data_simple.md5 # The version without PiLSL database
+```
+**Step 4:** Extract the dataset.
+```bash
+tar -xzvf data.tar.gz
+# tar -xzvf data_simple.tar.gz # The version without PiLSL database
+```
 
 ### Run models
 ```bash
