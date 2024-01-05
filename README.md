@@ -159,7 +159,8 @@ cd path/to/src
 python main.py -m SLMGAE \ # Choose the SL prediction method among 'GRSMF', 'SL2MF', 'CMFW', 'SLMGAE', 'NSF4SL', 'PTGNN', 'PiLSL', 'KG4SL', 'DDGCN', 'GCATSL' and 'MGE4SL'.
                -ns Rand \ # Choose the negative sampling method with 'Rand', 'Exp', or 'Dep'.
                -ds CV1 \ # Select the data splitting method with 'CV1', 'CV2', or 'CV3'.
-               -pn 1  # Set the positive to negative ratio with '1', '5', '20', or '50'.
+               -pn 1 \ # Set the positive to negative ratio with '1', '5', '20', or '50'.
+               --save_mat # Save the score matrix for model predictions. (This may take up a lot of disk space.)
 ```
 
 > \[!IMPORTANT]
