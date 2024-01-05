@@ -123,12 +123,14 @@ Follow these steps to download and prepare the training data:
 
 > \[!TIP]
 >
-> The actual command will depend on how you're downloading files from Google Drive.
+> The actual command will depend on how you're downloading files from Google Drive. For the convenience of downloading, the files have been compressed and split.
 
 > \[!IMPORTANT]
 >
 > We have prepared two versions of data, namely the complete version (`data.tar.gz`) and the version without PiLSL database (`data_simple.tar.gz`).
+> 
 > The decompressed size of the complete version is about 90GB, while the decompressed size of the version without PiLSL database is about 22GB.
+>
 > (Due to the extremely time-consuming database construction process, it is recommended to download the complete version of the data.
 > However, the data version without PiLSL database can successfully run all 10 models except PiLSL.)
 
