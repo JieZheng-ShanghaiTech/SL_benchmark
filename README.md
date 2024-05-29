@@ -52,6 +52,7 @@ The following graph depicts the performance of the machine learning models acros
 | PTGNN   | Pre-training graph neural networks for link prediction in biomedical networks      | [PTGNN](https://doi.org/10.1093/bioinformatics/btac100)| [PTGNN](https://github.com/longyahui/PT-GNN) |
 | PiLSL   | PiLSL: pairwise interaction learning-based graph neural network for synthetic lethality prediction in human cancers      | [PiLSL](https://doi.org/10.1093/bioinformatics/btac476)| [PiLSL](https://github.com/JieZheng-ShanghaiTech/PiLSL) |
 | KG4SL   | KG4SL: knowledge graph neural network for synthetic lethality prediction in human cancers      | [KG4SL](https://doi.org/10.1093/bioinformatics/btab271)| [KG4SL](https://github.com/JieZheng-ShanghaiTech/KG4SL) |
+| SLGNN        | SLGNN: Synthetic lethality prediction in human cancers based on factor-aware knowledge graph neural network     | [SLGNN](https://doi.org/10.1093/bioinformatics/btad015)| [SLGNN](https://github.com/zy972014452/SLGNN) |
 | DDGCN   | Dual-dropout graph convolutional network for predicting synthetic lethality in human cancers      | [DDGCN](https://doi.org/10.1093/bioinformatics/btaa211)| [DDGCN](https://github.com/CXX1113/Dual-DropoutGCN) |
 | GCATSL  | Graph contextualized attention network for predicting synthetic lethality in human cancers     | [GCATSL](https://doi.org/10.1093/bioinformatics/btab110)| [GCATSL](https://github.com/lichenbiostat/GCATSL) |
 | MGE4SL  | Predicting Synthetic Lethality in Human Cancers via Multi-Graph Ensemble Neural Network     | [MGE4SL](https://doi.org/10.1109/embc46164.2021.9630716)| [MGE4SL](https://github.com/JieZheng-ShanghaiTech/MGE4SL) |
@@ -71,13 +72,14 @@ The following graph depicts the performance of the machine learning models acros
 | De Kegel et al.   | Comprehensive prediction of robust synthetic lethality between paralog pairs in cancer cell lines      | [De Kegel et al.](https://doi.org/10.1016/j.cels.2021.08.006)|
 | PARIS             | Uncovering cancer vulnerabilities by machine learning prediction of synthetic lethality     | [PARIS](https://doi.org/10.1186/s12943-021-01405-8)|
 | SBSL              | Overcoming selection bias in synthetic lethality prediction     | [SBSL](https://doi.org/10.1093/bioinformatics/btac523)|
+| ELISL             | ELISL: early–late integrated synthetic lethality prediction in cancer | [ELISL](https://doi.org/10.1093/bioinformatics/btad764) |
 
 ### Deep Learning-Based Methods
 | Method       | Paper Title | Article Link |
 |--------------|-------------|--------------|
 | MVGCN    | MAGCN: A Multiple Attention Graph Convolution Networks for Predicting Synthetic Lethality     | [MVGCN](https://doi.org/10.1109/TCBB.2022.3221736)|
 | MVGCN-iSL    | Multi-view graph convolutional network for cancer cell-specific synthetic lethality prediction     | [MVGCN-iSL](https://doi.org/10.3389/fgene.2022.1103092)|
-| SLGNN        | SLGNN: Synthetic lethality prediction in human cancers based on factor-aware knowledge graph neural network     | [SLGNN](https://doi.org/10.1093/bioinformatics/btad015)|
+
 
 ## Repository Structure
 This repository is organized as follows:
@@ -156,7 +158,7 @@ tar -xzvf data.tar.gz
 cd path/to/results
 mkdir Rand_score_mats Exp_score_mats Dep_score_mats score_dist
 cd path/to/src
-python main.py -m SLMGAE \ # Choose the SL prediction method among 'GRSMF', 'SL2MF', 'CMFW', 'SLMGAE', 'NSF4SL', 'PTGNN', 'PiLSL', 'KG4SL', 'DDGCN', 'GCATSL' and 'MGE4SL'.
+python main.py -m SLMGAE \ # Choose the SL prediction method among 'GRSMF', 'SL2MF', 'CMFW', 'SLMGAE', 'NSF4SL', 'PTGNN', 'PiLSL', 'KG4SL', 'SLGNN', 'DDGCN', 'GCATSL' and 'MGE4SL'.
                -ns Rand \ # Choose the negative sampling method with 'Rand', 'Exp', or 'Dep'.
                -ds CV1 \ # Select the data splitting method with 'CV1', 'CV2', or 'CV3'.
                -pn 1 \ # Set the positive to negative ratio with '1', '5', '20', or '50'.
