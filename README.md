@@ -22,12 +22,12 @@ Welcome to the official code repository for the paper "Benchmarking of Machine L
 Our research conducts a thorough benchmark of recent machine learning methods, including three matrix factorization and eight deep learning models. We rigorously test model performance under diverse data splitting scenarios, negative sample ratios, and sampling methods. The focus is on both classification and ranking tasks, aiming to ascertain the models' generalizability and robustness.
 
 ## Workflow of the benchmarking study
-![Benchmarking Process Flowchart](./new_over.png)
+![Benchmarking Process Flowchart](./pipeline.png)
 
 ## Benchmarking results
 The following graph depicts the performance of the machine learning models across various scenarios:
 
-![Results](./new_res.png)
+![Results](./results.png)
 **A**, **B** and **C** represent the model performance under different negative sampling methods (`NSM_Rand`, `NSM_Exp` and `NSM_Dep`), where lighter colors indicate better performance. The figure is structured into five key sections:
 - **a)** A list of the 11 models.
 - **b)** The overall scores of the models along with combined scores for the classification task and the ranking task.
