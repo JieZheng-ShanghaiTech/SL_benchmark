@@ -130,7 +130,7 @@ Follow these steps to download and prepare the training data:
 
 > \[!IMPORTANT]
 >
-> We have prepared two versions of data, namely the complete version (`data.tar.gz`) and the version without PiLSL database (`data_simple.tar.gz`).
+> We have prepared two versions of data, namely the complete version (`data_large.tar.gz`) and the version without PiLSL database (`data_small.tar.gz`).
 > 
 > The decompressed size of the complete version is about 90GB, while the decompressed size of the version without PiLSL database is about 22GB.
 >
@@ -139,18 +139,18 @@ Follow these steps to download and prepare the training data:
 
 **Step 2:** Combine the parts into a single archive.
 ```bash
-cat data_a* > data.tar.gz # Complete version
-# cat data_simple_* > data_simple.tar.gz # The version without PiLSL database
+cat data_large.tar.gz.part* > data_large.tar.gz     # Complete version
+# cat data_small.tar.gz.part* > data_small.tar.gz   # The version without PiLSL database
 ```
 **Step 3:** Verify the integrity of the downloaded files.
 ```bash
-md5sum -c data.md5
-# md5sum -c data_simple.md5 # The version without PiLSL database
+md5sum -c data_large.tar.gz.md5
+# md5sum -c data_small.tar.gz.md5 # The version without PiLSL database
 ```
 **Step 4:** Extract the dataset.
 ```bash
-tar -xzvf data.tar.gz
-# tar -xzvf data_simple.tar.gz # The version without PiLSL database
+tar -xzvf data_large.tar.gz
+# tar -xzvf data_small.tar.gz # The version without PiLSL database
 ```
 
 ### Run models
