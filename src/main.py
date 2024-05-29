@@ -11,8 +11,8 @@ import torch
 import numpy as np
 import tensorflow as tf
 import os
-os.environ["CUDA_VISIBLE_DEVICES"] = "1"
-os.environ["TF_CPP_MIN_LOG_LEVEL"] = "0"
+# os.environ["CUDA_VISIBLE_DEVICES"] = "0"
+# os.environ["TF_CPP_MIN_LOG_LEVEL"] = "0"
 
 gpus = tf.config.experimental.list_physical_devices(device_type='GPU')
 for gpu in gpus:
@@ -28,7 +28,7 @@ torch.cuda.manual_seed_all(123)
 
 PTGNN_init = 1  # Pretrain PTGNN is ready, set to 0 if you want to repretrain PTGNN
 
-def save_resultes(d_s, p_n, old_res, model_res, model_name, res_name, col_names):
+def save_resultes(d_s, p_n, old_res, model_res, model_name, res_name, col_names, indep_test=None, cell_line=None):
 
     train_res = model_res[:5,:]
     test_res = model_res[5:,:]
@@ -42,13 +42,24 @@ def save_resultes(d_s, p_n, old_res, model_res, model_name, res_name, col_names)
         std_row = pd.DataFrame(np.asarray(std_res).reshape(1, -1), columns=col_names)
         
         return mean_row, std_row
-    mean_row, std_row = get_mean_std(train_res)
-    old_res = pd.concat([old_res, mean_row])
-    old_res = pd.concat([old_res, std_row])
-    mean_row, std_row = get_mean_std(test_res)
-    old_res = pd.concat([old_res, mean_row])
-    old_res = pd.concat([old_res, std_row])
     
+    def get_indep_res(res):
+        res_df = pd.DataFrame(columns=col_names)
+        for r in res:
+            res_df = pd.concat([res_df, pd.DataFrame(np.asarray([d_s, model_name, str(int(1/p_n))] + list(r)).reshape(1, -1), columns=col_names)])
+        
+        return res_df
+    if indep_test:
+        old_res = pd.concat([old_res, get_indep_res(train_res)])
+        old_res = pd.concat([old_res, get_indep_res(test_res)])
+    
+    train_mean_row, train_std_row = get_mean_std(train_res)
+    test_mean_row, test_std_row = get_mean_std(test_res)
+    
+    old_res = pd.concat([old_res, train_mean_row])
+    old_res = pd.concat([old_res, train_std_row])
+    old_res = pd.concat([old_res, test_mean_row])
+    old_res = pd.concat([old_res, test_std_row])
 
     new_res = copy.deepcopy(old_res)
     # save results
@@ -63,7 +74,7 @@ def set_gpu_memory_growth():
 
 def main(params_main):
     # Define a list of all available models
-    all_models = ['DDGCN', 'NSF4SL', 'GCATSL', 'SLMGAE', 'KG4SL', 'PTGNN', 'PiLSL', 'MGE4SL', 'SL2MF', 'GRSMF', 'CMFW']
+    all_models = ['DDGCN', 'NSF4SL', 'GCATSL', 'SLMGAE', 'KG4SL', 'SLGNN', 'PTGNN', 'PiLSL', 'MGE4SL', 'SL2MF', 'GRSMF', 'CMFW']
 
     # Define a list of all negative strategies
     negative_strategy = ['Random', 'Exp', 'Dep']
@@ -102,14 +113,26 @@ def main(params_main):
         # Assign the value of output_name parameter to tail_star variable
         tail_star = params_main.output_name
     
+    if params_main.cell_line:
+        tail_star = params_main.cell_line
+        
+    metrics_path = 'metrics'
+    if params_main.ex_compt:
+        metrics_path = 'metrics_wo_compt'
+    if params_main.indep_test:
+        metrics_path = 'metrics_indep_test'
+    if params_main.ex_compt and params_main.indep_test:
+        metrics_path = 'metrics_indep_test_wo_compt'
+    
     # Build result dataframe and the path to save the evaluation metrics
     def build_res_df(model_name):
-        res_name_time = time.strftime(
-            '%Y-%m-%d_%H:%M:%S', time.localtime(time.time()))
+        res_name_time = time.strftime('%Y-%m-%d_%H:%M:%S', time.localtime(time.time()))
         if tail_star:
-            res_name = f'../results/metrics/{n_s}/{model_name.lower()}/results_{res_name_time}_{p_n}_{d_s}_{n_s}_{tail_star}.csv'
+            res_name = f'../results/{metrics_path}/{n_s.lower()}/{model_name.lower()}/results_{res_name_time}_{p_n}_{d_s}_{n_s}_{tail_star}.csv'
         else:
-            res_name = f'../results/metrics/{n_s}/{model_name.lower()}/results_{res_name_time}_{p_n}_{d_s}_{n_s}.csv'
+            res_name = f'../results/{metrics_path}/{n_s.lower()}/{model_name.lower()}/results_{res_name_time}_{p_n}_{d_s}_{n_s}.csv'
+        if not os.path.exists(res_name):
+            os.makedirs(os.path.dirname(res_name), exist_ok=True)
         print(res_name)
         return res_name
         
@@ -120,7 +143,10 @@ def main(params_main):
                 # Loading data
                 print(f'Loading data ... (pos/neg={p_n}, division_strategy: {d_s}, negative_strategy: {n_s})')
                 num_node, _ = preprocess.get_id_map()
-                pos_samples, neg_samples = preprocess.get_kfold_data_pos_neg(5, num_node, 0.8, 0, 0.2, 1, p_n, d_s, n_s)
+                num_node=9845
+                print(num_node)
+                pos_samples, neg_samples = preprocess.get_kfold_data_pos_neg(5, num_node, 0.8, 0, 0.2, 1, p_n, d_s, n_s, params_main.ex_compt, params_main.indep_test,params_main.cell_line)
+                # continue
                 # initialize result dataframe
                 col_names = ['Strategy','Model','pos/neg','AUROC','AUPR','F1',
                 'NDCG@10','NDCG@20','NDCG@50','Recall@10','Recall@20','Recall@50',
@@ -136,8 +162,8 @@ def main(params_main):
                     parameter_set = get_config_dict('DDGCN', 9845, p_n, d_s, n_s)
                     print(f'DDGCN starting ...')
                     res_name = build_res_df('DDGCN')
-                    ddgcn_metrics = train_ddgcn(parameter_set, pos_samples, neg_samples, params_main.mode, params_main.save_mat)
-                    summary_result_df = save_resultes(d_s, p_n, summary_result_df, ddgcn_metrics, 'DDGCN', res_name, col_names)
+                    ddgcn_metrics = train_ddgcn(parameter_set, pos_samples, neg_samples, params_main.mode, params_main.save_mat, params_main.ex_compt, params_main.indep_test)
+                    summary_result_df = save_resultes(d_s, p_n, summary_result_df, ddgcn_metrics, 'DDGCN', res_name, col_names, params_main.indep_test,params_main.cell_line)
                     print(f'DDGCN done ...')
 
                     set_gpu_memory_growth()
@@ -148,9 +174,21 @@ def main(params_main):
                     parameter_set = get_config_dict('KG4SL', 9845, p_n, d_s, n_s)
                     print(f'KG4SL starting ...')
                     res_name = build_res_df('KG4SL')
-                    kg4sl_metrics = train_kg4sl(parameter_set, pos_samples, neg_samples, params_main.mode, params_main.save_mat)
-                    summary_result_df = save_resultes(d_s, p_n, summary_result_df, kg4sl_metrics, 'KG4SL', res_name, col_names)
+                    kg4sl_metrics = train_kg4sl(parameter_set, pos_samples, neg_samples, params_main.mode, params_main.save_mat, params_main.ex_compt, params_main.indep_test)
+                    summary_result_df = save_resultes(d_s, p_n, summary_result_df, kg4sl_metrics, 'KG4SL', res_name, col_names, params_main.indep_test,params_main.cell_line)
                     print(f'KG4SL done ...')
+
+                    set_gpu_memory_growth()
+                    
+                # SLGNN
+                if 'SLGNN' in which_model:
+                    from train.train_slgnn import train_slgnn
+                    parameter_set = get_config_dict('SLGNN', 9845, p_n, d_s, n_s)
+                    print(f'SLGNN starting ...')
+                    res_name = build_res_df('SLGNN')
+                    slgnn_metrics = train_slgnn(parameter_set, pos_samples, neg_samples, params_main.mode, params_main.save_mat, params_main.ex_compt, params_main.indep_test)
+                    summary_result_df = save_resultes(d_s, p_n, summary_result_df, slgnn_metrics, 'SLGNN', res_name, col_names, params_main.indep_test,params_main.cell_line)
+                    print(f'SLGNN done ...')
 
                     set_gpu_memory_growth()
                 
@@ -160,8 +198,8 @@ def main(params_main):
                     parameter_set = get_config_dict('NSF4SL', 9845, p_n, d_s, n_s)
                     print(f'NSF4SL starting ...')
                     res_name = build_res_df('NSF4SL')
-                    nsf4sl_metrics = train_nsf4sl(parameter_set, pos_samples, neg_samples, params_main.mode, params_main.save_mat)
-                    summary_result_df = save_resultes(d_s, p_n, summary_result_df, nsf4sl_metrics, 'NSF4SL', res_name, col_names)
+                    nsf4sl_metrics = train_nsf4sl(parameter_set, pos_samples, neg_samples, params_main.mode, params_main.save_mat, params_main.ex_compt, params_main.indep_test)
+                    summary_result_df = save_resultes(d_s, p_n, summary_result_df, nsf4sl_metrics, 'NSF4SL', res_name, col_names, params_main.indep_test,params_main.cell_line)
                     print(f'NSF4SL done ...')
 
                     set_gpu_memory_growth()
@@ -172,8 +210,8 @@ def main(params_main):
                     parameter_set = get_config_dict('GCATSL', 9845, p_n, d_s, n_s)
                     print(f'GCATSL starting ...')
                     res_name = build_res_df('GCATSL')
-                    gcatsl_metrics = train_gcatsl(parameter_set, pos_samples, neg_samples, params_main.mode, params_main.save_mat)
-                    summary_result_df = save_resultes(d_s, p_n, summary_result_df, gcatsl_metrics, 'GCATSL', res_name, col_names)
+                    gcatsl_metrics = train_gcatsl(parameter_set, pos_samples, neg_samples, params_main.mode, params_main.save_mat, params_main.ex_compt, params_main.indep_test)
+                    summary_result_df = save_resultes(d_s, p_n, summary_result_df, gcatsl_metrics, 'GCATSL', res_name, col_names, params_main.indep_test,params_main.cell_line)
                     print(f'GCATSL done ...')
 
                     set_gpu_memory_growth()
@@ -184,8 +222,8 @@ def main(params_main):
                     parameter_set = get_config_dict('SLMGAE', 9845, p_n, d_s, n_s)
                     print(f'SLMGAE starting ...')
                     res_name = build_res_df('SLMGAE')
-                    slmgae_metrics = train_slmgae(parameter_set, pos_samples, neg_samples, params_main.mode, params_main.save_mat)
-                    summary_result_df = save_resultes(d_s, p_n, summary_result_df, slmgae_metrics, 'SLMGAE', res_name, col_names)
+                    slmgae_metrics = train_slmgae(parameter_set, pos_samples, neg_samples, params_main.mode, params_main.save_mat, params_main.ex_compt, params_main.indep_test)
+                    summary_result_df = save_resultes(d_s, p_n, summary_result_df, slmgae_metrics, 'SLMGAE', res_name, col_names, params_main.indep_test,params_main.cell_line)
                     print(f'SLMGAE done ...')
 
                     set_gpu_memory_growth()
@@ -196,8 +234,8 @@ def main(params_main):
                     parameter_set = get_config_dict('PiLSL', 9845, p_n, d_s, n_s)
                     print(f'PiLSL starting ...')
                     res_name = build_res_df('PiLSL')
-                    pilsl_metrics = train_pilsl(parameter_set, pos_samples, neg_samples, params_main.mode, params_main.save_mat)
-                    summary_result_df = save_resultes(d_s, p_n, summary_result_df, pilsl_metrics, 'PiLSL', res_name, col_names)
+                    pilsl_metrics = train_pilsl(parameter_set, pos_samples, neg_samples, params_main.mode, params_main.save_mat, params_main.ex_compt, params_main.indep_test)
+                    summary_result_df = save_resultes(d_s, p_n, summary_result_df, pilsl_metrics, 'PiLSL', res_name, col_names, params_main.indep_test,params_main.cell_line)
                     print(f'PiLSL done ...')
 
                     set_gpu_memory_growth()
@@ -214,8 +252,8 @@ def main(params_main):
                     if PTGNN_init == 1:
                         print(f'PTGNN training ...')
                         res_name = build_res_df('PTGNN')
-                        ptgnn_metrics = train_ptgnn(parameter_set, pos_samples, neg_samples, params_main.mode, params_main.save_mat)
-                        summary_result_df = save_resultes(d_s, p_n, summary_result_df, ptgnn_metrics, 'PTGNN', res_name, col_names)
+                        ptgnn_metrics = train_ptgnn(parameter_set, pos_samples, neg_samples, params_main.mode, params_main.save_mat, params_main.ex_compt, params_main.indep_test)
+                        summary_result_df = save_resultes(d_s, p_n, summary_result_df, ptgnn_metrics, 'PTGNN', res_name, col_names, params_main.indep_test,params_main.cell_line)
                         print(f'PTGNN done ...')
 
                         set_gpu_memory_growth()
@@ -226,8 +264,8 @@ def main(params_main):
                     parameter_set = get_config_dict('MGE4SL', 9845, p_n, d_s, n_s)
                     print(f'MGE4SL starting ...')
                     res_name = build_res_df('MGE4SL')
-                    mge4sl_metrics = train_mge4sl(parameter_set, pos_samples, neg_samples, params_main.mode, params_main.save_mat)
-                    summary_result_df = save_resultes(d_s, p_n, summary_result_df, mge4sl_metrics, 'MGE4SL', res_name, col_names)
+                    mge4sl_metrics = train_mge4sl(parameter_set, pos_samples, neg_samples, params_main.mode, params_main.save_mat, params_main.ex_compt, params_main.indep_test)
+                    summary_result_df = save_resultes(d_s, p_n, summary_result_df, mge4sl_metrics, 'MGE4SL', res_name, col_names, params_main.indep_test,params_main.cell_line)
                     print(f'MGE4SL done ...')
 
                     set_gpu_memory_growth()
@@ -238,8 +276,8 @@ def main(params_main):
                     parameter_set = get_config_dict('SL2MF', 9845, p_n, d_s, n_s)
                     print(f'SL2MF starting ...')
                     res_name = build_res_df('SL2MF')
-                    sl2mf_metrics = train_sl2mf(parameter_set, pos_samples, neg_samples, params_main.mode, params_main.save_mat)
-                    summary_result_df = save_resultes(d_s, p_n, summary_result_df, sl2mf_metrics, 'SL2MF', res_name, col_names)
+                    sl2mf_metrics = train_sl2mf(parameter_set, pos_samples, neg_samples, params_main.mode, params_main.save_mat, params_main.ex_compt, params_main.indep_test)
+                    summary_result_df = save_resultes(d_s, p_n, summary_result_df, sl2mf_metrics, 'SL2MF', res_name, col_names, params_main.indep_test,params_main.cell_line)
                     print(f'SL2MF done ...')
                     
                     set_gpu_memory_growth()
@@ -250,8 +288,8 @@ def main(params_main):
                     parameter_set = get_config_dict('GRSMF', 9845, p_n, d_s, n_s)
                     print(f'GRSMF starting ...')
                     res_name = build_res_df('GRSMF')
-                    grsmf_metrics = train_grsmf(parameter_set, pos_samples, neg_samples, params_main.mode, params_main.save_mat)
-                    summary_result_df = save_resultes(d_s, p_n, summary_result_df, grsmf_metrics, 'GRSMF', res_name, col_names)
+                    grsmf_metrics = train_grsmf(parameter_set, pos_samples, neg_samples, params_main.mode, params_main.save_mat, params_main.ex_compt, params_main.indep_test)
+                    summary_result_df = save_resultes(d_s, p_n, summary_result_df, grsmf_metrics, 'GRSMF', res_name, col_names, params_main.indep_test,params_main.cell_line)
                     print(f'GRSMF done ...')
 
                     set_gpu_memory_growth()
@@ -262,8 +300,8 @@ def main(params_main):
                     parameter_set = get_config_dict('CMFW', 9845, p_n, d_s, n_s)
                     print(f'CMFW starting ...')
                     res_name = build_res_df('CMFW')
-                    cmfw_metrics = train_cmfw(parameter_set, pos_samples, neg_samples, params_main.mode, params_main.save_mat)
-                    summary_result_df = save_resultes(d_s, p_n, summary_result_df, cmfw_metrics, 'CMFW', res_name, col_names)
+                    cmfw_metrics = train_cmfw(parameter_set, pos_samples, neg_samples, params_main.mode, params_main.save_mat, params_main.ex_compt, params_main.indep_test)
+                    summary_result_df = save_resultes(d_s, p_n, summary_result_df, cmfw_metrics, 'CMFW', res_name, col_names, params_main.indep_test,params_main.cell_line)
                     print(f'CMFW done ...')
 
                     set_gpu_memory_growth()
@@ -283,6 +321,12 @@ if __name__ == "__main__":
                         help="Get final prediction result with all data.")
     params.add_argument("--save_mat", action="store_true",
                         help="Save the matrix by calculating predictions.")
+    params.add_argument("--ex_compt",action="store_true",
+                        help="Exclude gene pairs predicted by computation methods.")
+    params.add_argument("--indep_test",action="store_true",
+                        help="Using an independent test set for testing.")
+    params.add_argument("--cell_line",type=str, default=None,
+                        help="Use cell line data as an independent test set, including cesc, kirc, laml, ov, and merged (including data that do not conflict with these four cell lines).")
     params.add_argument("--output_name", "-out", type=str, default='wandb')
     params = params.parse_args()
     

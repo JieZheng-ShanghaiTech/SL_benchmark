@@ -5,6 +5,7 @@ import numpy as np
 import scipy.sparse as sp
 import pandas as pd
 import random
+import pickle as pkl
 from sklearn.model_selection import KFold
 from sklearn.preprocessing import MinMaxScaler
 from sklearn.decomposition import PCA
@@ -26,6 +27,9 @@ class ChecktoSave():
         
         self.best_train_classify = np.zeros((kfold, 3))
         self.best_train_ranking = np.zeros((kfold, 12))
+        
+        self.indep_test_classify = np.zeros((kfold, 3))
+        self.indep_test_ranking = np.zeros((kfold, 12))
         
     def chechtostop(self, fold, stop_num, metrics):
         if metrics[-1]<self.best_ranking[fold][11]:
@@ -55,6 +59,12 @@ class ChecktoSave():
             self.best_train_ranking[fold] = metrics
             self.best_rank_train_epoch = epoch
             return True
+
+    def update_indep_test_classify(self, fold, epoch, metrics):
+        self.indep_test_classify[fold] = metrics
+        
+    def update_indep_test_ranking(self, fold, epoch, metrics):
+        self.indep_test_ranking[fold] = metrics
         
     def get_best_classify(self):
         return self.best_class_epoch, self.best_classify
@@ -65,14 +75,34 @@ class ChecktoSave():
     def save_mat(self, path, score_mat):
         np.save(path, np.asarray(score_mat).astype(np.float32))
     
+    def get_all_indep_test_metrics(self):
+        all_test_metrics = np.hstack([self.indep_test_classify, self.indep_test_ranking])
+        all_valid_metrics = np.hstack([self.best_classify, self.best_ranking]) # valid
+        all_metrics = np.vstack([all_valid_metrics, all_test_metrics])
+        return all_metrics
+    
     def get_all_metrics(self):
         all_test_metrics = np.hstack([self.best_classify, self.best_ranking])
         all_train_metrics = np.hstack([self.best_train_classify, self.best_train_ranking])
         all_metrics = np.vstack([all_train_metrics, all_test_metrics])
         return all_metrics
         
+def sparse_matrix_from_adj(adj: np.array, num_node: int) -> sp.csr_matrix:
+    r = np.asarray(adj)[:, 0]
+    c = np.asarray(adj)[:, 1]
+    # print(max(r))
+    # print(num_node)
+    spm = sp.csr_matrix((np.ones(len(adj)).reshape(-1, ), (r, c)), shape=(num_node, num_node))
+    spm = spm + spm.T
+
+    return spm
+
+human_sl_pairs_df=pd.read_csv('../data/preprocessed_data/human_sl_6460.csv')
+# human_sl_pairs_df=pd.read_csv('../data/preprocessed_data/human_sl_9845.csv')
 
 meta_table = pd.read_csv('../data/preprocessed_data/meta_table_9845.csv')
+all_uni_id_cut = np.load('../data/preprocessed_data/wo_compt/all_uni_id_cut.npy',allow_pickle=True).item()
+
 
 def get_id_map():
     # meta_table = pd.read_csv(
@@ -80,36 +110,24 @@ def get_id_map():
     List_Proteins_in_SL = meta_table['symbol']
 
     id_mapping = dict(zip(list(meta_table['symbol']), list(meta_table['unified_id'])))
-    num_node = len(id_mapping)
+    num_node = len(set(human_sl_pairs_df['unified_id_A'])|set(human_sl_pairs_df['unified_id_B']))
 
     return num_node, id_mapping
-
-
-def sparse_matrix_from_adj(adj: np.array, num_node: int) -> sp.csr_matrix:
-    r = np.asarray(adj)[:, 0]
-    c = np.asarray(adj)[:, 1]
-    spm = sp.csr_matrix((np.ones(len(adj)).reshape(-1, ), (r, c)), shape=(num_node, num_node))
-    spm = spm + spm.T
-
-    return spm
-
-human_sl_pairs_df=pd.read_csv('../data/preprocessed_data/human_sl_9845.csv')
-
 
 def cv1_all(kfold,num_node,train_rat,valid_rat,test_rat,training_rat,xtimes, negative_strategy, exp_data_path=None):
 
     pos_position = copy.deepcopy(human_sl_pairs_df)
-    pos_position = np.asarray(pos_position[['unified_id_A', 'unified_id_B']].values)
+    pos_position = np.asarray(pos_position[['unified_id_A', 'unified_id_B']].values, dtype=int)
     for i in range(len(pos_position)):
         if pos_position[i, 0] > pos_position[i, 1]:
             pos_position[i, 0], pos_position[i, 1] = pos_position[i, 1], pos_position[i, 0]
     if negative_strategy == 'All_Random':
-        neg_position = np.asarray(np.ones((9845, 9845)), dtype='bool')
+        neg_position = np.asarray(np.ones((num_node, num_node)), dtype='bool')
 
     elif negative_strategy == 'All_Exp' or negative_strategy == 'All_Dep':
         neg_position = np.load(exp_data_path)
         print(neg_position.shape)
-        neg_position = sp.csr_matrix((np.ones(neg_position.shape[0]),(neg_position[:,0],neg_position[:,1])),shape=(9845,9845))
+        neg_position = sp.csr_matrix((np.ones(neg_position.shape[0]),(neg_position[:,0],neg_position[:,1])),shape=(num_node,num_node))
         neg_position = np.asarray((neg_position+neg_position.T).toarray(),dtype='bool')
 
 
@@ -177,27 +195,37 @@ def cv1_all(kfold,num_node,train_rat,valid_rat,test_rat,training_rat,xtimes, neg
 
     return pos_samples, neg_samples
 
-def cv1(kfold,num_node,train_rat,valid_rat,test_rat,training_rat,xtimes, negative_strategy, exp_data_path=None, score_data_path=None):
+def cv1(kfold,num_node,train_rat,valid_rat,test_rat,training_rat,xtimes, negative_strategy, exp_data_path=None, score_data_path=None, ex_compt=None):
 
     if train_rat + valid_rat + test_rat != 1:
         print('-' * 20)
         print('train_rat + valid_rat + test_rat != 1 !!!!!')
         print('-' * 20)
         return
-    
+
     pos_position = copy.deepcopy(human_sl_pairs_df)
-    pos_position = np.asarray(pos_position[['unified_id_A', 'unified_id_B']].values)
+    pos_position = np.asarray(pos_position[['unified_id_A', 'unified_id_B']].values,dtype=int)
+    # print(set(pos_position[:,0])|set(pos_position[:,1]))
     for i in range(len(pos_position)):
         if pos_position[i, 0] > pos_position[i, 1]:
             pos_position[i, 0], pos_position[i, 1] = pos_position[i, 1], pos_position[i, 0]
     if negative_strategy == 'Random' or negative_strategy == 'All':
-        neg_position = np.asarray(np.ones((9845, 9845)), dtype='bool')
-        
-        neg_position[pos_position[:, 1], pos_position[:, 0]] = False
-        neg_position[pos_position[:, 0], pos_position[:, 1]] = False
-        neg_position = np.triu(neg_position, k = 1)
-        neg_position = np.where(neg_position == True)
-        neg_position = np.vstack(neg_position).transpose()
+        sl_pos_set=set(zip(pos_position[:,0],pos_position[:,1]))
+        # neg_position = np.asarray(np.ones((num_node, num_node)), dtype='bool')
+        neg_position = []
+        for ind_a in range(num_node):
+            for ind_b in range(num_node):
+                if (ind_a,ind_b) in sl_pos_set or (ind_b,ind_a) in sl_pos_set:
+                    continue
+                if ind_a < ind_b:
+                    pair = (ind_a,ind_b)
+                    neg_position.append(pair)
+        neg_position = np.array(neg_position,dtype=float)
+        # neg_position[pos_position[:, 1], pos_position[:, 0]] = False
+        # neg_position[pos_position[:, 0], pos_position[:, 1]] = False
+        # neg_position = np.triu(neg_position, k = 1)
+        # neg_position = np.where(neg_position == True)
+        # neg_position = np.vstack(neg_position).transpose()
 
         init_pos_index = list(range(len(pos_position)))
         init_neg_index = list(range(len(neg_position)))
@@ -216,7 +244,15 @@ def cv1(kfold,num_node,train_rat,valid_rat,test_rat,training_rat,xtimes, negativ
         neg_id_scores_data = np.load(score_data_path)
         neg_index_from_source = np.load(exp_data_path)
         neg_position = neg_id_scores_data[neg_index_from_source,:2]
+        print(neg_position.shape)
+        if ex_compt:
+            new_neg_df = pd.DataFrame(neg_position)
+            new_neg_df = new_neg_df[new_neg_df[0].isin(all_uni_id_cut.keys())&new_neg_df[1].isin(all_uni_id_cut.keys())]
+            new_neg_df[0] = new_neg_df[0].map(all_uni_id_cut)
+            new_neg_df[1] = new_neg_df[1].map(all_uni_id_cut)
+            neg_position = new_neg_df.values
         neg_position = neg_position.astype('int')
+        print(pos_position.shape)
         print(neg_position.shape)
 
 
@@ -283,27 +319,46 @@ def cv2_division(row_set, col_set, SL_sparse, gene_a_sparse, gene_b_sparse, num_
 
     return np.asarray(cv2_set, dtype='int')
 
-def cv2(kfold,num_node,train_rat,valid_rat,test_rat,training_rat,xtimes, negative_strategy, exp_data_path=None, score_data_path=None):
+def cv2(kfold,num_node,train_rat,valid_rat,test_rat,training_rat,xtimes, negative_strategy, exp_data_path=None, score_data_path=None, ex_compt=None):
     pos_position = copy.deepcopy(human_sl_pairs_df)
-    pos_position = np.asarray(pos_position[['unified_id_A', 'unified_id_B']].values)
+    pos_position = np.asarray(pos_position[['unified_id_A', 'unified_id_B']].values, dtype=int)
     for i in range(len(pos_position)):
         if pos_position[i, 0] > pos_position[i, 1]:
             pos_position[i, 0], pos_position[i, 1] = pos_position[i, 1], pos_position[i, 0]
     if negative_strategy == 'Random' or negative_strategy == 'All':
-        neg_position = np.asarray(np.ones((9845, 9845)), dtype='bool')
+        # neg_position = np.asarray(np.ones((num_node, num_node)), dtype='bool')
         
-        neg_position[pos_position[:, 1], pos_position[:, 0]] = False
-        neg_position[pos_position[:, 0], pos_position[:, 1]] = False
-        neg_position = np.triu(neg_position, k = 1)
-        neg_position = np.where(neg_position == True)
-        neg_position = np.vstack(neg_position).transpose()
+        # neg_position[pos_position[:, 1], pos_position[:, 0]] = False
+        # neg_position[pos_position[:, 0], pos_position[:, 1]] = False
+        # neg_position = np.triu(neg_position, k = 1)
+        # neg_position = np.where(neg_position == True)
+        # neg_position = np.vstack(neg_position).transpose()
+        sl_pos_set=set(zip(pos_position[:,0],pos_position[:,1]))
+        # neg_position = np.asarray(np.ones((num_node, num_node)), dtype='bool')
+        neg_position = []
+        for ind_a in range(num_node):
+            for ind_b in range(num_node):
+                if (ind_a,ind_b) in sl_pos_set or (ind_b,ind_a) in sl_pos_set:
+                    continue
+                if ind_a < ind_b:
+                    pair = (ind_a,ind_b)
+                    neg_position.append(pair)
+        neg_position = np.array(neg_position,dtype=float)
 
     elif negative_strategy == 'Exp' or negative_strategy == 'Dep':
         # neg_position = np.load(exp_data_path)
         neg_id_scores_data = np.load(score_data_path)
         neg_index_from_source = np.load(exp_data_path)
         neg_position = neg_id_scores_data[neg_index_from_source,:2]
+        print(neg_position.shape)
+        if ex_compt:
+            new_neg_df = pd.DataFrame(neg_position)
+            new_neg_df = new_neg_df[new_neg_df[0].isin(all_uni_id_cut.keys())&new_neg_df[1].isin(all_uni_id_cut.keys())]
+            new_neg_df[0] = new_neg_df[0].map(all_uni_id_cut)
+            new_neg_df[1] = new_neg_df[1].map(all_uni_id_cut)
+            neg_position = new_neg_df.values
         neg_position = neg_position.astype('int')
+        print(pos_position.shape)
         print(neg_position.shape)
 
     SL_pos_sparse = sp.csr_matrix((np.ones(len(pos_position)), (pos_position[:, 0], pos_position[:, 1])), shape=(num_node, num_node),dtype='bool')
@@ -396,28 +451,47 @@ def cv3_division(pos_set, SL_sparse, gene_a_sparse, gene_b_sparse, num_node, neg
 
     return np.asarray(cv3_set, dtype='int')
 
-def cv3(kfold,num_node,train_rat,valid_rat,test_rat,training_rat,xtimes, negative_strategy, exp_data_path=None, score_data_path=None):
+def cv3(kfold,num_node,train_rat,valid_rat,test_rat,training_rat,xtimes, negative_strategy, exp_data_path=None, score_data_path=None, ex_compt=None):
     pos_position = copy.deepcopy(human_sl_pairs_df)
-    pos_position = np.asarray(pos_position[['unified_id_A', 'unified_id_B']].values)
+    pos_position = np.asarray(pos_position[['unified_id_A', 'unified_id_B']].values, dtype=int)
     for i in range(len(pos_position)):
         if pos_position[i, 0] > pos_position[i, 1]:
             pos_position[i, 0], pos_position[i, 1] = pos_position[i, 1], pos_position[i, 0]
 
     if negative_strategy == 'Random' or negative_strategy == 'All':
-        neg_position = np.asarray(np.ones((9845, 9845)), dtype='bool')
+        # neg_position = np.asarray(np.ones((num_node, num_node)), dtype='bool')
         
-        neg_position[pos_position[:, 1], pos_position[:, 0]] = False
-        neg_position[pos_position[:, 0], pos_position[:, 1]] = False
-        neg_position = np.triu(neg_position, k = 1)
-        neg_position = np.where(neg_position == True)
-        neg_position = np.vstack(neg_position).transpose()
+        # neg_position[pos_position[:, 1], pos_position[:, 0]] = False
+        # neg_position[pos_position[:, 0], pos_position[:, 1]] = False
+        # neg_position = np.triu(neg_position, k = 1)
+        # neg_position = np.where(neg_position == True)
+        # neg_position = np.vstack(neg_position).transpose()
+        sl_pos_set=set(zip(pos_position[:,0],pos_position[:,1]))
+        # neg_position = np.asarray(np.ones((num_node, num_node)), dtype='bool')
+        neg_position = []
+        for ind_a in range(num_node):
+            for ind_b in range(num_node):
+                if (ind_a,ind_b) in sl_pos_set or (ind_b,ind_a) in sl_pos_set:
+                    continue
+                if ind_a < ind_b:
+                    pair = (ind_a,ind_b)
+                    neg_position.append(pair)
+        neg_position = np.array(neg_position,dtype=float)
 
     elif negative_strategy == 'Exp' or negative_strategy == 'Dep':
         # neg_position = np.load(exp_data_path)
         neg_id_scores_data = np.load(score_data_path)
         neg_index_from_source = np.load(exp_data_path)
         neg_position = neg_id_scores_data[neg_index_from_source,:2]
+        print(neg_position.shape)
+        if ex_compt:
+            new_neg_df = pd.DataFrame(neg_position)
+            new_neg_df = new_neg_df[new_neg_df[0].isin(all_uni_id_cut.keys())&new_neg_df[1].isin(all_uni_id_cut.keys())]
+            new_neg_df[0] = new_neg_df[0].map(all_uni_id_cut)
+            new_neg_df[1] = new_neg_df[1].map(all_uni_id_cut)
+            neg_position = new_neg_df.values
         neg_position = neg_position.astype('int')
+        print(pos_position.shape)
         print(neg_position.shape)
 
     SL_pos_sparse = sp.csr_matrix((np.ones(len(pos_position)), (pos_position[:, 0], pos_position[:, 1])), shape=(num_node, num_node),dtype='bool')
@@ -491,20 +565,77 @@ def cv3(kfold,num_node,train_rat,valid_rat,test_rat,training_rat,xtimes, negativ
 
 
 def get_kfold_data_pos_neg(kfold: int, num_node: int, train_rat: float, valid_rat: float, test_rat: float,
-                           training_rat: float, pos_neg: float, division_strategy: str, negative_strategy: str):
+                           training_rat: float, pos_neg: float, division_strategy: str, negative_strategy: str, 
+                           ex_compt=None, indep_test=None,cell_line=None):
+    
     xtimes = int(1/pos_neg)
+    
+    if indep_test:
+        suf=''
+        if cell_line in ['k562','a549','293t','hela','merged']:
+            suf=f'_cell_{cell_line}'
+        elif cell_line=='indep_test':
+            suf = '_indep_test'
+        elif cell_line=='kr4sl':
+            suf = '_kr4sl'
+        elif 'nsf4sl' in cell_line:
+            suf = '_'+cell_line
+        if ex_compt:
+            if division_strategy == 'CV1' and negative_strategy == 'Random':
+                with open(f'../data/data_split_wo_comp/CV1_{xtimes}{suf}.pkl','rb') as f:
+                    pos_samples, neg_samples = pkl.load(f)
+                    print(f'CV1_{xtimes}{suf}.pkl loaded')
+            if division_strategy == 'CV1' and negative_strategy == 'Exp':
+                with open(f'../data/data_split_wo_comp/CV1_{xtimes}_Exp{suf}.pkl','rb') as f:
+                    pos_samples, neg_samples = pkl.load(f)
+                    print(f'CV1_{xtimes}_Exp{suf}.pkl loaded')
+        else:
+            if division_strategy == 'CV1' and negative_strategy == 'Random':
+                with open(f'../data/data_split/CV1_{xtimes}{suf}.pkl','rb') as f:
+                    pos_samples, neg_samples = pkl.load(f)
+                    print(f'CV1_{xtimes}{suf}.pkl loaded')
+            if division_strategy in ['CV3'] and negative_strategy == 'Random':
+                with open(f'../data/data_split/{division_strategy}_{xtimes}{suf}.pkl','rb') as f:
+                    pos_samples, neg_samples = pkl.load(f)
+                    print(f'{division_strategy}_{xtimes}{suf}.pkl loaded')
+            if division_strategy == 'CV1' and negative_strategy == 'Exp':
+                with open(f'../data/data_split/CV1_{xtimes}_Exp{suf}.pkl','rb') as f:
+                    pos_samples, neg_samples = pkl.load(f)
+                    print(f'CV1_{xtimes}_Exp{suf}.pkl loaded')
+        
+        return pos_samples, neg_samples
+    
+    
 
 
     exp_data_paths = ['../data/preprocessed_data/one_time_neg_index_exp.npy',
-                      '../data/preprocessed_data/five_time_neg_index_exp.npy',
-                      '../data/preprocessed_data/twenty_time_neg_index_exp.npy',
-                      '../data/preprocessed_data/fifty_time_neg_index_exp.npy',]
+                    '../data/preprocessed_data/five_time_neg_index_exp.npy',
+                    '../data/preprocessed_data/twenty_time_neg_index_exp.npy',
+                    '../data/preprocessed_data/fifty_time_neg_index_exp.npy',]
     dep_data_paths = ['../data/preprocessed_data/one_time_neg_index_dep.npy',
-                      '../data/preprocessed_data/five_time_neg_index_dep.npy',
-                      '../data/preprocessed_data/twenty_time_neg_index_dep.npy',
-                      '../data/preprocessed_data/fifty_time_neg_index_dep.npy',]
+                    '../data/preprocessed_data/five_time_neg_index_dep.npy',
+                    '../data/preprocessed_data/twenty_time_neg_index_dep.npy',
+                    '../data/preprocessed_data/fifty_time_neg_index_dep.npy',]
+    
     exp_score_data_path = '../data/preprocessed_data/sorted_neg_ids_scores_exp.npy'
     dep_score_data_path = '../data/preprocessed_data/sorted_neg_ids_scores_dep.npy'
+    
+    train_data_path = '../data/data_split/'
+    
+    if ex_compt:
+        exp_data_paths = ['../data/preprocessed_data/wo_compt/one_time_neg_index_exp_wo_compt.npy',
+                        '../data/preprocessed_data/wo_compt/five_time_neg_index_exp_wo_compt.npy',
+                        '../data/preprocessed_data/wo_compt/twenty_time_neg_index_exp_wo_compt.npy',
+                        '../data/preprocessed_data/wo_compt/fifty_time_neg_index_exp_wo_compt.npy']
+        dep_data_paths = ['../data/preprocessed_data/wo_compt/one_time_neg_index_dep_wo_compt.npy',
+                        '../data/preprocessed_data/wo_compt/five_time_neg_index_dep_wo_compt.npy',
+                        '../data/preprocessed_data/wo_compt/twenty_time_neg_index_dep_wo_compt.npy',
+                        '../data/preprocessed_data/wo_compt/fifty_time_neg_index_dep_wo_compt.npy']
+        
+        exp_score_data_path = '../data/preprocessed_data/wo_compt/sorted_neg_ids_scores_exp_wo_compt.npy'
+        dep_score_data_path = '../data/preprocessed_data/wo_compt/sorted_neg_ids_scores_dep_wo_compt.npy'
+        
+        train_data_path = '../data/data_split_wo_comp/'
 
     if xtimes == 1:
         exp_data_path = exp_data_paths[0]
@@ -519,29 +650,27 @@ def get_kfold_data_pos_neg(kfold: int, num_node: int, train_rat: float, valid_ra
         exp_data_path = exp_data_paths[3]
         dep_data_path = dep_data_paths[3]
 
-    train_data_path = '../data/data_split/'
-
     if negative_strategy == 'Exp':
         if division_strategy == 'CV1':
             if os.path.exists(f'{train_data_path}CV1_{xtimes}_Exp.npy'):
                 pos_samples, neg_samples = np.load(f'{train_data_path}CV1_{xtimes}_Exp.npy', allow_pickle=True)
             else:
                 pos_samples, neg_samples = cv1(kfold, num_node, train_rat, valid_rat, test_rat, training_rat, xtimes,
-                                               negative_strategy, exp_data_path, exp_score_data_path)
+                                               negative_strategy, exp_data_path, exp_score_data_path, ex_compt)
                 np.save(f'{train_data_path}CV1_{xtimes}_Exp.npy', [pos_samples, neg_samples])
         elif division_strategy == 'CV2':
             if os.path.exists(f'{train_data_path}CV2_{xtimes}_Exp.npy'):
                 pos_samples, neg_samples = np.load(f'{train_data_path}CV2_{xtimes}_Exp.npy', allow_pickle=True)
             else:
                 pos_samples, neg_samples = cv2(kfold, num_node, train_rat, valid_rat, test_rat, training_rat, xtimes,
-                                               negative_strategy, exp_data_path, exp_score_data_path)
+                                               negative_strategy, exp_data_path, exp_score_data_path, ex_compt)
                 np.save(f'{train_data_path}CV2_{xtimes}_Exp.npy', [pos_samples, neg_samples])
         elif division_strategy == 'CV3':
             if os.path.exists(f'{train_data_path}CV3_{xtimes}_Exp.npy'):
                 pos_samples, neg_samples = np.load(f'{train_data_path}CV3_{xtimes}_Exp.npy', allow_pickle=True)
             else:
                 pos_samples, neg_samples = cv3(kfold, num_node, train_rat, valid_rat, test_rat, training_rat, xtimes,
-                                               negative_strategy, exp_data_path, exp_score_data_path)
+                                               negative_strategy, exp_data_path, exp_score_data_path, ex_compt)
                 np.save(f'{train_data_path}CV3_{xtimes}_Exp.npy', [pos_samples, neg_samples])
         else:
             print('Please select data division strategy. (one of ["CV1","CV2","CV3"])')
@@ -551,21 +680,21 @@ def get_kfold_data_pos_neg(kfold: int, num_node: int, train_rat: float, valid_ra
                 pos_samples, neg_samples = np.load(f'{train_data_path}CV1_{xtimes}_Dep.npy', allow_pickle=True)
             else:
                 pos_samples, neg_samples = cv1(kfold, num_node, train_rat, valid_rat, test_rat, training_rat, xtimes,
-                                               negative_strategy, dep_data_path, dep_score_data_path)
+                                               negative_strategy, dep_data_path, dep_score_data_path, ex_compt)
                 np.save(f'{train_data_path}CV1_{xtimes}_Dep.npy', [pos_samples, neg_samples])
         elif division_strategy == 'CV2':
             if os.path.exists(f'{train_data_path}CV2_{xtimes}_Dep.npy'):
                 pos_samples, neg_samples = np.load(f'{train_data_path}CV2_{xtimes}_Dep.npy', allow_pickle=True)
             else:
                 pos_samples, neg_samples = cv2(kfold, num_node, train_rat, valid_rat, test_rat, training_rat, xtimes,
-                                               negative_strategy, dep_data_path, dep_score_data_path)
+                                               negative_strategy, dep_data_path, dep_score_data_path, ex_compt)
                 np.save(f'{train_data_path}CV2_{xtimes}_Dep.npy', [pos_samples, neg_samples])
         elif division_strategy == 'CV3':
             if os.path.exists(f'{train_data_path}CV3_{xtimes}_Dep.npy'):
                 pos_samples, neg_samples = np.load(f'{train_data_path}CV3_{xtimes}_Dep.npy', allow_pickle=True)
             else:
                 pos_samples, neg_samples = cv3(kfold, num_node, train_rat, valid_rat, test_rat, training_rat, xtimes,
-                                               negative_strategy, dep_data_path, dep_score_data_path)
+                                               negative_strategy, dep_data_path, dep_score_data_path, ex_compt)
                 np.save(f'{train_data_path}CV3_{xtimes}_Dep.npy', [pos_samples, neg_samples])
         else:
             print('Please select data division strategy. (one of ["CV1","CV2","CV3"])')
@@ -721,7 +850,11 @@ def cal_metrics(score_mat, pos_index, neg_index, seen_index=None):
     y_bool_list = []
     y_sorted_score_list = []
     y_pos_num_list = []
-    for i in range(n_gene):
+    ### onli for kr4sl
+    test_gene_set = list(set(pos_index[:, 0])|set(pos_index[:, 1]))
+    for i in test_gene_set:
+    ### onli for kr4sl
+    # for i in range(n_gene):
         y_pos_index = pos_matrix[i, :].nonzero()[1]
         if len(y_pos_index) == 0:
             continue
@@ -785,24 +918,27 @@ def load_kg(neighbor_sample_size):
         if tail not in kg2dict:
             kg2dict[tail] = []
         kg2dict[tail].append((head, relation))
+    if neighbor_sample_size == 'slgnn':
+        adj_entity = kg_wo_sl[['unified_id_A','unified_id_B']].values
+        adj_relation = kg_wo_sl['type(r)'].values
+    else:
+        isolated_point = []
+        adj_entity = np.zeros([n_entity, neighbor_sample_size], dtype=np.int64)
+        adj_relation = np.zeros([n_entity, neighbor_sample_size], dtype=np.int64)
+        for entity, entity_name in enumerate(kg2dict.keys()):
+            if (entity in kg2dict.keys()):
+                neighbors = kg2dict[entity]
+            else:
+                neighbors = [(entity, 24)]
+                isolated_point.append(entity)
 
-    isolated_point = []
-    adj_entity = np.zeros([n_entity, neighbor_sample_size], dtype=np.int64)
-    adj_relation = np.zeros([n_entity, neighbor_sample_size], dtype=np.int64)
-    for entity, entity_name in enumerate(kg2dict.keys()):
-        if (entity in kg2dict.keys()):
-            neighbors = kg2dict[entity]
-        else:
-            neighbors = [(entity, 24)]
-            isolated_point.append(entity)
-
-        n_neighbors = len(neighbors)
-        if n_neighbors >= neighbor_sample_size:
-            sampled_indices = np.random.choice(list(range(n_neighbors)), size=neighbor_sample_size, replace=False)
-        else:
-            sampled_indices = np.random.choice(list(range(n_neighbors)), size=neighbor_sample_size, replace=True)
-        adj_entity[entity] = np.array([neighbors[i][0] for i in sampled_indices])
-        adj_relation[entity] = np.array([neighbors[i][1] for i in sampled_indices])
+            n_neighbors = len(neighbors)
+            if n_neighbors >= neighbor_sample_size:
+                sampled_indices = np.random.choice(list(range(n_neighbors)), size=neighbor_sample_size, replace=False)
+            else:
+                sampled_indices = np.random.choice(list(range(n_neighbors)), size=neighbor_sample_size, replace=True)
+            adj_entity[entity] = np.array([neighbors[i][0] for i in sampled_indices])
+            adj_relation[entity] = np.array([neighbors[i][1] for i in sampled_indices])
 
     return n_node_a, n_node_b, n_entity, n_relations, adj_entity, adj_relation
 

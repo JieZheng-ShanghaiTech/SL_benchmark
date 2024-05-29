@@ -19,9 +19,13 @@ tf.compat.v1.set_random_seed(456)
 
 cuda_device='/gpu:0'
 
-def train_gcatsl(parameters, pos_samples, neg_samples, mode=None, save_mat=False):
-    graph_train_pos_kfold, graph_test_pos_kfold, train_pos_kfold, test_pos_kfold = pos_samples
-    graph_train_neg_kfold, graph_test_neg_kfold, train_neg_kfold, test_neg_kfold = neg_samples
+def train_gcatsl(parameters, pos_samples, neg_samples, mode=None, save_mat=False, ex_compt=None, indep_test=None):
+    if indep_test:
+        graph_train_pos_kfold, graph_valid_pos_kfold, graph_test_pos_kfold, train_pos_kfold, valid_pos_kfold, test_pos_kfold = pos_samples
+        graph_train_neg_kfold, graph_valid_neg_kfold, graph_test_neg_kfold, train_neg_kfold, valid_neg_kfold, test_neg_kfold = neg_samples
+    else:
+        graph_train_pos_kfold, graph_test_pos_kfold, train_pos_kfold, test_pos_kfold = pos_samples
+        graph_train_neg_kfold, graph_test_neg_kfold, train_neg_kfold, test_neg_kfold = neg_samples
 
     kfold = parameters['kfold']
     batch_size = parameters['batch_size']
@@ -38,6 +42,10 @@ def train_gcatsl(parameters, pos_samples, neg_samples, mode=None, save_mat=False
     d_s = parameters['division_strategy']
     n_s = parameters['negative_strategy']
     
+    base_suffix = '_score_mats'
+    if ex_compt:
+        base_suffix = '_score_mats_wo_compt'
+        
     if mode=='final_res':
         kfold=1
         p_n = 'final_res'
@@ -64,32 +72,57 @@ def train_gcatsl(parameters, pos_samples, neg_samples, mode=None, save_mat=False
     checktosave = ChecktoSave(kfold)
     for fold_num in range(kfold):
         print("cross_validation:", '%01d' % (fold_num))
-
-        graph_train_pos = graph_train_pos_kfold[fold_num]
-        graph_test_pos = graph_test_pos_kfold[fold_num]
-        graph_train_neg = graph_train_neg_kfold[fold_num].toarray().reshape([-1, 1])
-        graph_test_neg = graph_test_neg_kfold[fold_num].toarray().reshape([-1, 1])
+        if indep_test:
+            graph_train_pos = graph_train_pos_kfold[fold_num]
+            graph_valid_pos = graph_valid_pos_kfold[fold_num]
+            graph_test_pos = graph_test_pos_kfold[fold_num]
+            graph_train_neg = graph_train_neg_kfold[fold_num].toarray().reshape([-1, 1])
+            graph_valid_neg = graph_valid_neg_kfold[fold_num].toarray().reshape([-1, 1])
+            graph_test_neg = graph_test_neg_kfold[fold_num].toarray().reshape([-1, 1])
+            
+            y_train = graph_train_pos.toarray().reshape([-1, 1])
+            y_valid = graph_valid_pos.toarray().reshape([-1, 1])
+            y_test = graph_test_pos.toarray().reshape([-1, 1])
+            
+            # train_mask = graph_train_pos
+            train_mask = np.array(y_train[:, 0], dtype=np.bool).reshape([-1, 1])
+            train_neg_mask = graph_train_neg
+            # valid_mask = graph_test_pos
+            valid_mask = np.array(y_valid[:, 0], dtype=np.bool).reshape([-1, 1])
+            valid_neg_mask = graph_valid_neg
+            # test_mask = graph_test_pos
+            test_mask = np.array(y_test[:, 0], dtype=np.bool).reshape([-1, 1])
+            test_neg_mask = graph_test_neg
+            
+        else:
+            graph_train_pos = graph_train_pos_kfold[fold_num]
+            graph_test_pos = graph_test_pos_kfold[fold_num]
+            graph_train_neg = graph_train_neg_kfold[fold_num].toarray().reshape([-1, 1])
+            graph_test_neg = graph_test_neg_kfold[fold_num].toarray().reshape([-1, 1])
+            
+            y_train = graph_train_pos.toarray().reshape([-1, 1])
+            y_test = graph_test_pos.toarray().reshape([-1, 1])
+            
+            # train_mask = graph_train_pos
+            train_mask = np.array(y_train[:, 0], dtype=np.bool).reshape([-1, 1])
+            train_neg_mask = graph_train_neg
+            # test_mask = graph_test_pos
+            test_mask = np.array(y_test[:, 0], dtype=np.bool).reshape([-1, 1])
+            test_neg_mask = graph_test_neg
+        
+        # build_premat=1
+        interaction_local = graph_train_pos.toarray() + np.eye(graph_train_pos.toarray().shape[0])
+        interaction_local = sp.csr_matrix(interaction_local)
+        interaction_local_list = [interaction_local, interaction_local, interaction_local]
 
         residual = False
         nonlinearity = tf.nn.elu
         model = GAT
 
-        y_train = graph_train_pos.toarray().reshape([-1, 1])
-        y_test = graph_test_pos.toarray().reshape([-1, 1])
-
-        # train_mask = graph_train_pos
-        train_mask = np.array(y_train[:, 0], dtype=np.bool).reshape([-1, 1])
-        train_neg_mask = graph_train_neg
-        # test_mask = graph_test_pos
-        test_mask = np.array(y_test[:, 0], dtype=np.bool).reshape([-1, 1])
-        test_neg_mask = graph_test_neg
-        # build_premat=1
-        interaction_local = graph_train_pos.toarray() + np.eye(graph_train_pos.toarray().shape[0])
-        interaction_local = sp.csr_matrix(interaction_local)
-        interaction_local_list = [interaction_local, interaction_local, interaction_local]
         if 'All' in n_s:
             n_s = n_s.split('_')[1]
-        path_global = os.path.normpath(f'../data/preprocessed_data/gcatsl_data/interaction_global_{fold_num}_{d_s}_{n_s}_1000.txt')
+        path_global = os.path.normpath(f'../data/preprocessed_data/gcatsl_data/interaction_global_{fold_num}_{d_s}_Random_1000.txt')
+        # path_global = os.path.normpath(f'../data/preprocessed_data/gcatsl_data/interaction_global_{fold_num}_{d_s}_{n_s}_1000.txt')
         if not os.path.exists(path_global):
             build_premat=1
             walk_matrix = random_walk_with_restart(graph_train_pos.toarray())
@@ -179,75 +212,159 @@ def train_gcatsl(parameters, pos_samples, neg_samples, mode=None, save_mat=False
                     print('Epoch: %04d | Training: loss = %.5f, time = %.5f' % ((epoch + 1), train_loss_avg / tr_step, time.time() - t))
 
                     ###########     test      ############
-                    ts_size = features_list[0].shape[0]
-                    ts_step = 0
-                    ts_loss = 0.0
-                    ts_acc = 0.0
-                    print("Start to test")
-                    t = time.time()
-                    while ts_step * batch_size < ts_size:
-                        fd1 = {i: d[ts_step * batch_size:(ts_step + 1) * batch_size]
-                            for i, d in zip(feature_in_list, features_list)}
-                        fd2 = {bias_in_local_list[i]: biases_local_list[i] for i in range(len(biases_local_list))}
-                        fd3 = {bias_in_global_list[i]: biases_global_list[i] for i in range(len(biases_global_list))}
-                        fd4 = {lbl_in: y_test,
-                            msk_in: test_mask,
-                            neg_msk: test_neg_mask,
-                            is_train: False,
-                            attn_drop: 0.0,
-                            ffd_drop: 0.0}
-                        fd = fd1
-                        fd.update(fd2)
-                        fd.update(fd3)
-                        fd.update(fd4)
-                        with tf.device(cuda_device):
-                            score_matrix, loss_value_ts, acc_ts = sess.run([pro_matrix, loss, accuracy], feed_dict=fd)
+                    if indep_test:
+                        ts_size = features_list[0].shape[0]
+                        ts_step = 0
+                        ts_loss = 0.0
+                        ts_acc = 0.0
+                        print("Start to test")
+                        t = time.time()
+                        while ts_step * batch_size < ts_size:
+                            fd1 = {i: d[ts_step * batch_size:(ts_step + 1) * batch_size]
+                                for i, d in zip(feature_in_list, features_list)}
+                            fd2 = {bias_in_local_list[i]: biases_local_list[i] for i in range(len(biases_local_list))}
+                            fd3 = {bias_in_global_list[i]: biases_global_list[i] for i in range(len(biases_global_list))}
+                            fd4 = {lbl_in: y_valid,
+                                msk_in: valid_mask,
+                                neg_msk: valid_neg_mask,
+                                is_train: False,
+                                attn_drop: 0.0,
+                                ffd_drop: 0.0}
+                            fd = fd1
+                            fd.update(fd2)
+                            fd.update(fd3)
+                            fd.update(fd4)
+                            with tf.device(cuda_device):
+                                score_matrix, loss_value_ts, acc_ts = sess.run([pro_matrix, loss, accuracy], feed_dict=fd)
+                            wandb.log({
+                                'valid_loss':loss_value_ts
+                            })
+                            ts_loss += loss_value_ts
+                            ts_acc += acc_ts
+                            ts_step += 1
+                        print(f'Valid loss: {ts_loss / ts_step}, Valid time: {time.time()-t}')
+
+                        score_matrix = score_matrix.reshape((n, n))
+
+                        train_metrics = cal_metrics(score_matrix, train_pos_kfold[fold_num], train_neg_kfold[fold_num])
+                        checktosave.update_train_classify(fold_num, epoch, np.asarray([train_metrics[0], train_metrics[2], train_metrics[1]]))
+                        checktosave.update_train_ranking(fold_num, epoch, train_metrics[3:])
                         wandb.log({
-                            'test_loss':loss_value_ts
+                            'train_auc':train_metrics[0],'train_f1':train_metrics[1],'train_aupr':train_metrics[2],
+                            'train_N10':train_metrics[3],'train_N20':train_metrics[4],'train_N50':train_metrics[5],
+                            'train_R10':train_metrics[6],'train_R20':train_metrics[7],'train_R50':train_metrics[8],
+                            'train_P10':train_metrics[9],'train_P20':train_metrics[10],'train_P50':train_metrics[11],
                         })
-                        ts_loss += loss_value_ts
-                        ts_acc += acc_ts
-                        ts_step += 1
-                    # print('Test loss:', ts_loss / ts_step)
-                    print(f'Test loss: {ts_loss / ts_step}, Test time: {time.time()-t}')
+                        
+                        valid_metrics = cal_metrics(score_matrix, valid_pos_kfold[fold_num], valid_neg_kfold[fold_num])
+                        wandb.log({
+                            'valid_auc':valid_metrics[0],'valid_f1':valid_metrics[1],'valid_aupr':valid_metrics[2],
+                            'valid_N10':valid_metrics[3],'valid_N20':valid_metrics[4],'valid_N50':valid_metrics[5],
+                            'valid_R10':valid_metrics[6],'valid_R20':valid_metrics[7],'valid_R50':valid_metrics[8],
+                            'valid_P10':valid_metrics[9],'valid_P20':valid_metrics[10],'valid_P50':valid_metrics[11],
+                        })
 
-                    score_matrix = score_matrix.reshape((n, n))
-
-                    train_metrics = cal_metrics(score_matrix, train_pos_kfold[fold_num], train_neg_kfold[fold_num])
-                    checktosave.update_train_classify(fold_num, epoch, np.asarray([train_metrics[0], train_metrics[2], train_metrics[1]]))
-                    checktosave.update_train_ranking(fold_num, epoch, train_metrics[3:])
-                    wandb.log({
-                        'train_auc':train_metrics[0],'train_f1':train_metrics[1],'train_aupr':train_metrics[2],
-                        'train_N10':train_metrics[3],'train_N20':train_metrics[4],'train_N50':train_metrics[5],
-                        'train_R10':train_metrics[6],'train_R20':train_metrics[7],'train_R50':train_metrics[8],
-                        'train_P10':train_metrics[9],'train_P20':train_metrics[10],'train_P50':train_metrics[11],
-                    })
-
-                    test_metrics = cal_metrics(score_matrix, test_pos_kfold[fold_num], test_neg_kfold[fold_num], train_pos_kfold[fold_num])
-                    wandb.log({
-                        'test_auc':test_metrics[0],'test_f1':test_metrics[1],'test_aupr':test_metrics[2],
-                        'test_N10':test_metrics[3],'test_N20':test_metrics[4],'test_N50':test_metrics[5],
-                        'test_R10':test_metrics[6],'test_R20':test_metrics[7],'test_R50':test_metrics[8],
-                        'test_P10':test_metrics[9],'test_P20':test_metrics[10],'test_P50':test_metrics[11],
-                    })
-                    print(test_metrics)
-                    if save_mat:
-                        if checktosave.update_classify(fold_num, epoch, np.asarray([test_metrics[0], test_metrics[2], test_metrics[1]])):
-                            # print('Saving score matrix ...')
-                            if not os.path.exists(f'../results/{n_s}_score_mats/gcatsl'):
-                                os.makedirs(f'../results/{n_s}_score_mats/gcatsl')
-                            path = f'../results/{n_s}_score_mats/gcatsl/gcatsl_fold_{fold_num}_pos_neg_{p_n}_{d_s}_{n_s}_classify.npz'
-                            checktosave.save_mat(path, score_matrix)
-                        if checktosave.update_ranking(fold_num, epoch, test_metrics[3:]):
-                            # print('Saving score matrix ...')
-                            path = f'../results/{n_s}_score_mats/gcatsl/gcatsl_fold_{fold_num}_pos_neg_{p_n}_{d_s}_{n_s}_ranking.npz'
-                            checktosave.save_mat(path, score_matrix)
+                        test_metrics = cal_metrics(score_matrix, test_pos_kfold[fold_num], test_neg_kfold[fold_num], train_pos_kfold[fold_num])
+                        wandb.log({
+                            'test_auc':test_metrics[0],'test_f1':test_metrics[1],'test_aupr':test_metrics[2],
+                            'test_N10':test_metrics[3],'test_N20':test_metrics[4],'test_N50':test_metrics[5],
+                            'test_R10':test_metrics[6],'test_R20':test_metrics[7],'test_R50':test_metrics[8],
+                            'test_P10':test_metrics[9],'test_P20':test_metrics[10],'test_P50':test_metrics[11],
+                        })
+                        print(test_metrics)
+                        
+                        if save_mat:
+                            if checktosave.update_classify(fold_num, epoch, np.asarray([valid_metrics[0], valid_metrics[2], valid_metrics[1]])):
+                                # print('Saving score matrix ...')
+                                if not os.path.exists(f'../results/{n_s}{base_suffix}/gcatsl'):
+                                    os.makedirs(f'../results/{n_s}{base_suffix}/gcatsl')
+                                path = f'../results/{n_s}{base_suffix}/gcatsl/gcatsl_fold_{fold_num}_pos_neg_{p_n}_{d_s}_{n_s}_classify.npz'
+                                checktosave.save_mat(path, score_matrix)
+                                checktosave.update_indep_test_classify(fold_num, 0, np.asarray([test_metrics[0], test_metrics[2], test_metrics[1]]))
+                            if checktosave.update_ranking(fold_num, epoch, valid_metrics[3:]):
+                                # print('Saving score matrix ...')
+                                path = f'../results/{n_s}{base_suffix}/gcatsl/gcatsl_fold_{fold_num}_pos_neg_{p_n}_{d_s}_{n_s}_ranking.npz'
+                                checktosave.save_mat(path, score_matrix)
+                                checktosave.update_indep_test_ranking(fold_num, 0, test_metrics[3:])
+                        else:
+                            if checktosave.update_classify(fold_num, epoch, np.asarray([valid_metrics[0], valid_metrics[2], valid_metrics[1]])):
+                                checktosave.update_indep_test_classify(fold_num, epoch, np.asarray([test_metrics[0], test_metrics[2], test_metrics[1]]))
+                            if checktosave.update_ranking(fold_num, epoch, valid_metrics[3:]):
+                                checktosave.update_indep_test_ranking(fold_num, epoch, test_metrics[3:])
                     else:
-                        checktosave.update_classify(fold_num, epoch, np.asarray([test_metrics[0], test_metrics[2], test_metrics[1]]))
-                        checktosave.update_ranking(fold_num, epoch, test_metrics[3:])
+                        ts_size = features_list[0].shape[0]
+                        ts_step = 0
+                        ts_loss = 0.0
+                        ts_acc = 0.0
+                        print("Start to test")
+                        t = time.time()
+                        while ts_step * batch_size < ts_size:
+                            fd1 = {i: d[ts_step * batch_size:(ts_step + 1) * batch_size]
+                                for i, d in zip(feature_in_list, features_list)}
+                            fd2 = {bias_in_local_list[i]: biases_local_list[i] for i in range(len(biases_local_list))}
+                            fd3 = {bias_in_global_list[i]: biases_global_list[i] for i in range(len(biases_global_list))}
+                            fd4 = {lbl_in: y_test,
+                                msk_in: test_mask,
+                                neg_msk: test_neg_mask,
+                                is_train: False,
+                                attn_drop: 0.0,
+                                ffd_drop: 0.0}
+                            fd = fd1
+                            fd.update(fd2)
+                            fd.update(fd3)
+                            fd.update(fd4)
+                            with tf.device(cuda_device):
+                                score_matrix, loss_value_ts, acc_ts = sess.run([pro_matrix, loss, accuracy], feed_dict=fd)
+                            wandb.log({
+                                'test_loss':loss_value_ts
+                            })
+                            ts_loss += loss_value_ts
+                            ts_acc += acc_ts
+                            ts_step += 1
+                        # print('Test loss:', ts_loss / ts_step)
+                        print(f'Test loss: {ts_loss / ts_step}, Test time: {time.time()-t}')
+
+                        score_matrix = score_matrix.reshape((n, n))
+
+                        train_metrics = cal_metrics(score_matrix, train_pos_kfold[fold_num], train_neg_kfold[fold_num])
+                        checktosave.update_train_classify(fold_num, epoch, np.asarray([train_metrics[0], train_metrics[2], train_metrics[1]]))
+                        checktosave.update_train_ranking(fold_num, epoch, train_metrics[3:])
+                        wandb.log({
+                            'train_auc':train_metrics[0],'train_f1':train_metrics[1],'train_aupr':train_metrics[2],
+                            'train_N10':train_metrics[3],'train_N20':train_metrics[4],'train_N50':train_metrics[5],
+                            'train_R10':train_metrics[6],'train_R20':train_metrics[7],'train_R50':train_metrics[8],
+                            'train_P10':train_metrics[9],'train_P20':train_metrics[10],'train_P50':train_metrics[11],
+                        })
+
+                        test_metrics = cal_metrics(score_matrix, test_pos_kfold[fold_num], test_neg_kfold[fold_num], train_pos_kfold[fold_num])
+                        wandb.log({
+                            'test_auc':test_metrics[0],'test_f1':test_metrics[1],'test_aupr':test_metrics[2],
+                            'test_N10':test_metrics[3],'test_N20':test_metrics[4],'test_N50':test_metrics[5],
+                            'test_R10':test_metrics[6],'test_R20':test_metrics[7],'test_R50':test_metrics[8],
+                            'test_P10':test_metrics[9],'test_P20':test_metrics[10],'test_P50':test_metrics[11],
+                        })
+                        print(test_metrics)
+                        
+                        if save_mat:
+                            if checktosave.update_classify(fold_num, epoch, np.asarray([test_metrics[0], test_metrics[2], test_metrics[1]])):
+                                # print('Saving score matrix ...')
+                                if not os.path.exists(f'../results/{n_s}{base_suffix}/gcatsl'):
+                                    os.makedirs(f'../results/{n_s}{base_suffix}/gcatsl')
+                                path = f'../results/{n_s}{base_suffix}/gcatsl/gcatsl_fold_{fold_num}_pos_neg_{p_n}_{d_s}_{n_s}_classify.npz'
+                                checktosave.save_mat(path, score_matrix)
+                            if checktosave.update_ranking(fold_num, epoch, test_metrics[3:]):
+                                # print('Saving score matrix ...')
+                                path = f'../results/{n_s}{base_suffix}/gcatsl/gcatsl_fold_{fold_num}_pos_neg_{p_n}_{d_s}_{n_s}_ranking.npz'
+                                checktosave.save_mat(path, score_matrix)
+                        else:
+                            checktosave.update_classify(fold_num, epoch, np.asarray([test_metrics[0], test_metrics[2], test_metrics[1]]))
+                            checktosave.update_ranking(fold_num, epoch, test_metrics[3:])
 
     wandb.finish()
     # auc f1 aupr N10 N20 N50 R10 R20 R50 P10 P20 P50
-    all_metrics = checktosave.get_all_metrics()
+    if indep_test:
+        all_metrics = checktosave.get_all_indep_test_metrics()
+    else:
+        all_metrics = checktosave.get_all_metrics()
     
     return all_metrics

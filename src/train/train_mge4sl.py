@@ -20,11 +20,14 @@ torch.cuda.manual_seed_all(456)
 
 cuda_device=torch.device('cuda:0')
 
-def train_mge4sl(parameters, pos_samples, neg_samples, mode=None, save_mat=False):
+def train_mge4sl(parameters, pos_samples, neg_samples, mode=None, save_mat=False, ex_compt=None,indep_test=None):
     data_path = '../data/preprocessed_data/mge4sl_processed_data.csv'
-
-    _, _, train_pos_kfold, test_pos_kfold = pos_samples
-    _, _, train_neg_kfold, test_neg_kfold = neg_samples
+    if indep_test:
+        _, _, _, train_pos_kfold, valid_pos_kfold, test_pos_kfold = pos_samples
+        _, _, _, train_neg_kfold, valid_neg_kfold, test_neg_kfold = neg_samples
+    else:
+        _, _, train_pos_kfold, test_pos_kfold = pos_samples
+        _, _, train_neg_kfold, test_neg_kfold = neg_samples
 
     kfold = parameters['kfold']
     epochs = parameters['epochs']
@@ -34,6 +37,10 @@ def train_mge4sl(parameters, pos_samples, neg_samples, mode=None, save_mat=False
     num_nodes = parameters['num_node']
     n_s = parameters['negative_strategy']
     
+    base_suffix = '_score_mats'
+    if ex_compt:
+        base_suffix = '_score_mats_wo_compt'
+        
     if mode=='final_res':
         kfold=1
         p_n = d_s = n_s = 'final_res'
@@ -52,23 +59,29 @@ def train_mge4sl(parameters, pos_samples, neg_samples, mode=None, save_mat=False
     for fold_num in range(kfold):
         sl_data = train_pos_kfold[fold_num]
         nosl_data = train_neg_kfold[fold_num]
-        sl_test_data = test_pos_kfold[fold_num]
-        nosl_test_data = test_neg_kfold[fold_num]
-
         synlethdb = SynlethDB(num_nodes, sl_data, nosl_data)
-
+        
         synlethdb.train_pos_edge_index = torch.tensor(sl_data.T)
         synlethdb.train_pos_edge_index = to_undirected(synlethdb.train_pos_edge_index)
         synlethdb.train_neg_edge_index = torch.tensor(nosl_data.T)
         synlethdb.train_neg_edge_index = to_undirected(synlethdb.train_neg_edge_index)
-
-        synlethdb.val_pos_edge_index = torch.tensor(sl_test_data.T)
-        # synlethdb.val_pos_edge_index = to_undirected(synlethdb.val_pos_edge_index)
-        synlethdb.val_neg_edge_index = torch.tensor(nosl_test_data.T)
-        # synlethdb.val_neg_edge_index = to_undirected(synlethdb.val_neg_edge_index)
-
+        
+        if indep_test:
+            sl_valid_data = valid_pos_kfold[fold_num]
+            nosl_valid_data = valid_neg_kfold[fold_num]
+            sl_test_data = test_pos_kfold[fold_num]
+            nosl_test_data = test_neg_kfold[fold_num]
+            
+            synlethdb.val_pos_edge_index = torch.tensor(sl_valid_data.T)
+            synlethdb.val_neg_edge_index = torch.tensor(nosl_valid_data.T)
+        else:
+            sl_test_data = test_pos_kfold[fold_num]
+            nosl_test_data = test_neg_kfold[fold_num]
+            
+            synlethdb.val_pos_edge_index = torch.tensor(sl_test_data.T)
+            synlethdb.val_neg_edge_index = torch.tensor(nosl_test_data.T)
+            
         k_data = synlethdb
-
         synlethdb_ppi, synlethdb_rea, synlethdb_cor, synlethdb_go_F, \
         synlethdb_go_C, synlethdb_go_P, synlethdb_kegg = construct_kg_sldb(num_nodes, data, sl_data, nosl_data)
 
@@ -100,37 +113,79 @@ def train_mge4sl(parameters, pos_samples, neg_samples, mode=None, save_mat=False
                     'train_R10':train_metrics[6],'train_R20':train_metrics[7],'train_R50':train_metrics[8],
                     'train_P10':train_metrics[9],'train_P20':train_metrics[10],'train_P50':train_metrics[11],
                 })
-                test_metrics = cal_metrics(all_score_matrix, test_pos_kfold[fold_num],test_neg_kfold[fold_num], train_pos_kfold[fold_num])
-                wandb.log({
-                    'test_auc':test_metrics[0],'test_f1':test_metrics[1],'test_aupr':test_metrics[2],
-                    'test_N10':test_metrics[3],'test_N20':test_metrics[4],'test_N50':test_metrics[5],
-                    'test_R10':test_metrics[6],'test_R20':test_metrics[7],'test_R50':test_metrics[8],
-                    'test_P10':test_metrics[9],'test_P20':test_metrics[10],'test_P50':test_metrics[11],
-                })
                 
-                if save_mat:
-                    if checktosave.update_classify(fold_num, epoch, np.asarray([test_metrics[0], test_metrics[2], test_metrics[1]])):
-                        # print('Saving score matrix ...')
-                        if not os.path.exists(f'../results/{n_s}_score_mats/mge4sl'):
-                            os.makedirs(f'../results/{n_s}_score_mats/mge4sl')
-                        path = f'../results/{n_s}_score_mats/mge4sl/mge4sl_fold_{fold_num}_pos_neg_{p_n}_{d_s}_{n_s}_classify.npy'
-                        checktosave.save_mat(path, all_score_matrix)
-                    if checktosave.update_ranking(fold_num, epoch, test_metrics[3:]):
-                        # print('Saving score matrix ...')
-                        path = f'../results/{n_s}_score_mats/mge4sl/mge4sl_fold_{fold_num}_pos_neg_{p_n}_{d_s}_{n_s}_ranking.npy'
-                        checktosave.save_mat(path, all_score_matrix)
-                else:
-                    checktosave.update_classify(fold_num, epoch, np.asarray([test_metrics[0], test_metrics[2], test_metrics[1]]))
-                    checktosave.update_ranking(fold_num, epoch, test_metrics[3:])
+                if indep_test:
+                    valid_metrics = cal_metrics(all_score_matrix, valid_pos_kfold[fold_num],valid_neg_kfold[fold_num], train_pos_kfold[fold_num])
+                    wandb.log({
+                        'valid_auc':valid_metrics[0],'valid_f1':valid_metrics[1],'valid_aupr':valid_metrics[2],
+                        'valid_N10':valid_metrics[3],'valid_N20':valid_metrics[4],'valid_N50':valid_metrics[5],
+                        'valid_R10':valid_metrics[6],'valid_R20':valid_metrics[7],'valid_R50':valid_metrics[8],
+                        'valid_P10':valid_metrics[9],'valid_P20':valid_metrics[10],'valid_P50':valid_metrics[11],
+                    })
                     
-                print(test_metrics)
-                
+                    test_metrics = cal_metrics(all_score_matrix, test_pos_kfold[fold_num],test_neg_kfold[fold_num], train_pos_kfold[fold_num])
+                    wandb.log({
+                        'test_auc':test_metrics[0],'test_f1':test_metrics[1],'test_aupr':test_metrics[2],
+                        'test_N10':test_metrics[3],'test_N20':test_metrics[4],'test_N50':test_metrics[5],
+                        'test_R10':test_metrics[6],'test_R20':test_metrics[7],'test_R50':test_metrics[8],
+                        'test_P10':test_metrics[9],'test_P20':test_metrics[10],'test_P50':test_metrics[11],
+                    })
+                    print(test_metrics)
+                    
+                    if save_mat:
+                        if checktosave.update_classify(fold_num, epoch, np.asarray([valid_metrics[0], valid_metrics[2], valid_metrics[1]])):
+                            # print('Saving score matrix ...')
+                            if not os.path.exists(f'../results/{n_s}{base_suffix}/mge4sl'):
+                                os.makedirs(f'../results/{n_s}{base_suffix}/mge4sl')
+                            path = f'../results/{n_s}{base_suffix}/mge4sl/mge4sl_fold_{fold_num}_pos_neg_{p_n}_{d_s}_{n_s}_classify.npy'
+                            checktosave.save_mat(path, all_score_matrix)
+                            checktosave.update_indep_test_classify(fold_num, 0, np.asarray([test_metrics[0], test_metrics[2], test_metrics[1]]))
+                        if checktosave.update_ranking(fold_num, epoch, valid_metrics[3:]):
+                            # print('Saving score matrix ...')
+                            path = f'../results/{n_s}{base_suffix}/mge4sl/mge4sl_fold_{fold_num}_pos_neg_{p_n}_{d_s}_{n_s}_ranking.npy'
+                            checktosave.save_mat(path, all_score_matrix)
+                            checktosave.update_indep_test_ranking(fold_num, 0, test_metrics[3:])
+                    else:
+                        if checktosave.update_classify(fold_num, epoch, np.asarray([valid_metrics[0], valid_metrics[2], valid_metrics[1]])):
+                            checktosave.update_indep_test_classify(fold_num, epoch, np.asarray([test_metrics[0], test_metrics[2], test_metrics[1]]))
+                        if checktosave.update_ranking(fold_num, epoch, valid_metrics[3:]):
+                            checktosave.update_indep_test_ranking(fold_num, epoch, test_metrics[3:])
+                        
+                else:
+                    test_metrics = cal_metrics(all_score_matrix, test_pos_kfold[fold_num],test_neg_kfold[fold_num], train_pos_kfold[fold_num])
+                    wandb.log({
+                        'test_auc':test_metrics[0],'test_f1':test_metrics[1],'test_aupr':test_metrics[2],
+                        'test_N10':test_metrics[3],'test_N20':test_metrics[4],'test_N50':test_metrics[5],
+                        'test_R10':test_metrics[6],'test_R20':test_metrics[7],'test_R50':test_metrics[8],
+                        'test_P10':test_metrics[9],'test_P20':test_metrics[10],'test_P50':test_metrics[11],
+                    })
+                    print(test_metrics)
+                    
+                    if save_mat:
+                        if checktosave.update_classify(fold_num, epoch, np.asarray([test_metrics[0], test_metrics[2], test_metrics[1]])):
+                            # print('Saving score matrix ...')
+                            if not os.path.exists(f'../results/{n_s}{base_suffix}/mge4sl'):
+                                os.makedirs(f'../results/{n_s}{base_suffix}/mge4sl')
+                            path = f'../results/{n_s}{base_suffix}/mge4sl/mge4sl_fold_{fold_num}_pos_neg_{p_n}_{d_s}_{n_s}_classify.npy'
+                            checktosave.save_mat(path, all_score_matrix)
+                        if checktosave.update_ranking(fold_num, epoch, test_metrics[3:]):
+                            # print('Saving score matrix ...')
+                            path = f'../results/{n_s}{base_suffix}/mge4sl/mge4sl_fold_{fold_num}_pos_neg_{p_n}_{d_s}_{n_s}_ranking.npy'
+                            checktosave.save_mat(path, all_score_matrix)
+                    else:
+                        checktosave.update_classify(fold_num, epoch, np.asarray([test_metrics[0], test_metrics[2], test_metrics[1]]))
+                        checktosave.update_ranking(fold_num, epoch, test_metrics[3:])
+                        
+                    
                 explr_scheduler.step()
 
                 log = 'Epoch: {:03d}, Loss: {:.4f}, Val_AUC: {:.4f}, Val_AUPR:{:.4f}, Val_F1:{:.4f},'
                 print(log.format(epoch, train_loss, test_metrics[0], test_metrics[2], test_metrics[1]))
     wandb.finish()
     # auc f1 aupr N10 N20 N50 R10 R20 R50 P10 P20 P50
-    all_metrics = checktosave.get_all_metrics()
+    if indep_test:
+        all_metrics = checktosave.get_all_indep_test_metrics()
+    else:
+        all_metrics = checktosave.get_all_metrics()
     
     return all_metrics

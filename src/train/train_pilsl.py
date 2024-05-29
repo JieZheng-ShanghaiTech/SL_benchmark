@@ -20,13 +20,22 @@ np.random.seed(456)
 torch.manual_seed(456)
 torch.cuda.manual_seed_all(456)
 
-def train_pilsl(parameters, pos_samples, neg_samples, mode=None, save_mat=False):
-    _, _, train_pos_kfold, test_pos_kfold = pos_samples
-    _, _, train_neg_kfold, test_neg_kfold = neg_samples
+def train_pilsl(parameters, pos_samples, neg_samples, mode=None, save_mat=False, ex_compt=None,indep_test=None):
+    if indep_test:
+        _, _, _, train_pos_kfold, valid_pos_kfold, test_pos_kfold = pos_samples
+        _, _, _, train_neg_kfold, valid_neg_kfold, test_neg_kfold = neg_samples
+    else:
+        _, _, train_pos_kfold, test_pos_kfold = pos_samples
+        _, _, train_neg_kfold, test_neg_kfold = neg_samples
+        
     kfold = parameters['kfold']
     p_n = parameters['pos_neg']
     d_s = parameters['division_strategy']
     n_s = parameters['negative_strategy']
+    
+    base_suffix = '_score_mats'
+    if ex_compt:
+        base_suffix = '_score_mats_wo_compt'
     
     if mode=='final_res':
         kfold=1
@@ -119,22 +128,30 @@ def train_pilsl(parameters, pos_samples, neg_samples, mode=None, save_mat=False)
     checktosave = ChecktoSave(kfold)
     for fold_num in range(kfold):
         print(f'fold:{fold_num}')
+        
+        print(pilsl_paras_dict['db_path'])
+        
         train_pos=np.hstack([train_pos_kfold[fold_num], np.zeros((train_pos_kfold[fold_num].shape[0], 1))])
         train_neg=np.hstack([train_neg_kfold[fold_num], np.zeros((train_neg_kfold[fold_num].shape[0], 1))])
-        test_pos=np.hstack([test_pos_kfold[fold_num], np.zeros((test_pos_kfold[fold_num].shape[0], 1))])
-        test_neg=np.hstack([test_neg_kfold[fold_num], np.zeros((test_neg_kfold[fold_num].shape[0], 1))])
-
         train_pairs=np.vstack([train_neg,train_pos])
-        test_pairs=np.vstack([train_neg,train_pos,test_neg,test_pos])
-
-        print(pilsl_paras_dict['db_path'])
-
         train = SubgraphDataset(pilsl_paras_dict['db_path'], 'train_pairs', pilsl_paras_dict['file_paths'], train_pairs)
         print('train set done.')
+        
+        test_pos=np.hstack([test_pos_kfold[fold_num], np.zeros((test_pos_kfold[fold_num].shape[0], 1))])
+        test_neg=np.hstack([test_neg_kfold[fold_num], np.zeros((test_neg_kfold[fold_num].shape[0], 1))])
+        
+        if indep_test:
+            valid_pos=np.hstack([valid_pos_kfold[fold_num], np.zeros((valid_pos_kfold[fold_num].shape[0], 1))])
+            valid_neg=np.hstack([valid_neg_kfold[fold_num], np.zeros((valid_neg_kfold[fold_num].shape[0], 1))])
+            
+            test_pairs=np.vstack([train_neg,train_pos,valid_neg,valid_pos,test_neg,test_pos])
+            print('valid set done.')
+        else:
+            test_pairs=np.vstack([train_neg,train_pos,test_neg,test_pos])
         test = SubgraphDataset(pilsl_paras_dict['db_path'], 'train_pairs', pilsl_paras_dict['file_paths'], test_pairs,
-                               ssp_graph=train.ssp_graph,
-                               id2entity=train.id2entity, id2relation=train.id2relation, rel=train.num_rels,
-                               graph=train.graph)
+                                ssp_graph=train.ssp_graph,
+                                id2entity=train.id2entity, id2relation=train.id2relation, rel=train.num_rels,
+                                graph=train.graph)
         print('test set done.')
 
         pilsl_paras_dict['num_rels']=train.num_rels
@@ -156,9 +173,9 @@ def train_pilsl(parameters, pos_samples, neg_samples, mode=None, save_mat=False)
         mfeat = np.load('../data/preprocessed_data/pilsl_data/pilsl_random_feature.npy', allow_pickle=True).item()
         graph_classifier.omics_feat(mfeat)
 
-        test_evaluator = Evaluator(pilsl_paras_dict, graph_classifier, test, test_pairs)
         train_evaluator = Evaluator(pilsl_paras_dict, graph_classifier, train, train_pairs)
-
+        test_evaluator = Evaluator(pilsl_paras_dict, graph_classifier, test, test_pairs)
+        
         trainer = Trainer(pilsl_paras_dict, graph_classifier, train, train_evaluator, None, test_evaluator, None, wandb_runner=run)
 
         print('Starting training with full batch...')
@@ -178,37 +195,78 @@ def train_pilsl(parameters, pos_samples, neg_samples, mode=None, save_mat=False)
             'train_P10':train_metrics[9],'train_P20':train_metrics[10],'train_P50':train_metrics[11],
             'train_M10':train_metrics[12],'train_M20':train_metrics[13],'train_M50':train_metrics[14],
         })
-
-        test_metrics = cal_metrics(score_mat, test_pos_kfold[fold_num], test_neg_kfold[fold_num], train_pos_kfold[fold_num])
-        run.log({
-            'test_auc':test_metrics[0],'test_f1':test_metrics[1],'test_aupr':test_metrics[2],
-            'test_N10':test_metrics[3],'test_N20':test_metrics[4],'test_N50':test_metrics[5],
-            'test_R10':test_metrics[6],'test_R20':test_metrics[7],'test_R50':test_metrics[8],
-            'test_P10':test_metrics[9],'test_P20':test_metrics[10],'test_P50':test_metrics[11],
-            'test_M10':test_metrics[12],'test_M20':test_metrics[13],'test_M50':test_metrics[14],
-        })
-        
-        if save_mat:
-            if checktosave.update_classify(fold_num, 0, np.asarray([test_metrics[0], test_metrics[2], test_metrics[1]])):
-                # print('Saving score matrix ...')
-                if not os.path.exists(f'../results/{n_s}_score_mats/pilsl'):
-                    os.makedirs(f'../results/{n_s}_score_mats/pilsl')
-                path = f'../results/{n_s}_score_mats/pilsl/pilsl_fold_{fold_num}_pos_neg_{p_n}_{d_s}_{n_s}_classify.npy'
-                checktosave.save_mat(path, score_mat)
-            if checktosave.update_ranking(fold_num, 0, test_metrics[3:]):
-                # print('Saving score matrix ...')
-                path = f'../results/{n_s}_score_mats/pilsl/pilsl_fold_{fold_num}_pos_neg_{p_n}_{d_s}_{n_s}_ranking.npy'
-                checktosave.save_mat(path, score_mat)
-        else:
-            checktosave.update_classify(fold_num, 0, np.asarray([test_metrics[0], test_metrics[2], test_metrics[1]]))
-            checktosave.update_ranking(fold_num, 0, test_metrics[3:])
+        if indep_test:
+            valid_metrics = cal_metrics(score_mat, valid_pos_kfold[fold_num], valid_neg_kfold[fold_num], train_pos_kfold[fold_num])
+            run.log({
+                'valid_auc':valid_metrics[0],'valid_f1':valid_metrics[1],'valid_aupr':valid_metrics[2],
+                'valid_N10':valid_metrics[3],'valid_N20':valid_metrics[4],'valid_N50':valid_metrics[5],
+                'valid_R10':valid_metrics[6],'valid_R20':valid_metrics[7],'valid_R50':valid_metrics[8],
+                'valid_P10':valid_metrics[9],'valid_P20':valid_metrics[10],'valid_P50':valid_metrics[11],
+                'valid_M10':valid_metrics[12],'valid_M20':valid_metrics[13],'valid_M50':valid_metrics[14],
+            })
             
-        print(f'{test_metrics}')
+            test_metrics = cal_metrics(score_mat, test_pos_kfold[fold_num], test_neg_kfold[fold_num], train_pos_kfold[fold_num])
+            run.log({
+                'test_auc':test_metrics[0],'test_f1':test_metrics[1],'test_aupr':test_metrics[2],
+                'test_N10':test_metrics[3],'test_N20':test_metrics[4],'test_N50':test_metrics[5],
+                'test_R10':test_metrics[6],'test_R20':test_metrics[7],'test_R50':test_metrics[8],
+                'test_P10':test_metrics[9],'test_P20':test_metrics[10],'test_P50':test_metrics[11],
+                'test_M10':test_metrics[12],'test_M20':test_metrics[13],'test_M50':test_metrics[14],
+            })
+            print(test_metrics)
+            
+            if save_mat:
+                if checktosave.update_classify(fold_num, 0, np.asarray([valid_metrics[0], valid_metrics[2], valid_metrics[1]])):
+                    # print('Saving score matrix ...')
+                    if not os.path.exists(f'../results/{n_s}{base_suffix}/pilsl'):
+                        os.makedirs(f'../results/{n_s}{base_suffix}/pilsl')
+                    path = f'../results/{n_s}{base_suffix}/pilsl/pilsl_fold_{fold_num}_pos_neg_{p_n}_{d_s}_{n_s}_classify.npy'
+                    checktosave.save_mat(path, score_mat)
+                    checktosave.update_indep_test_classify(fold_num, 0, np.asarray([test_metrics[0], test_metrics[2], test_metrics[1]]))
+                if checktosave.update_ranking(fold_num, 0, valid_metrics[3:]):
+                    # print('Saving score matrix ...')
+                    path = f'../results/{n_s}{base_suffix}/pilsl/pilsl_fold_{fold_num}_pos_neg_{p_n}_{d_s}_{n_s}_ranking.npy'
+                    checktosave.save_mat(path, score_mat)
+                    checktosave.update_indep_test_ranking(fold_num, 0, test_metrics[3:])
+            else:
+                if checktosave.update_classify(fold_num, 0, np.asarray([valid_metrics[0], valid_metrics[2], valid_metrics[1]])):
+                    checktosave.update_indep_test_classify(fold_num, 0, np.asarray([test_metrics[0], test_metrics[2], test_metrics[1]]))
+                if checktosave.update_ranking(fold_num, 0, valid_metrics[3:]):
+                    checktosave.update_indep_test_ranking(fold_num, 0, test_metrics[3:])
+        else:
+            test_metrics = cal_metrics(score_mat, test_pos_kfold[fold_num], test_neg_kfold[fold_num], train_pos_kfold[fold_num])
+            run.log({
+                'test_auc':test_metrics[0],'test_f1':test_metrics[1],'test_aupr':test_metrics[2],
+                'test_N10':test_metrics[3],'test_N20':test_metrics[4],'test_N50':test_metrics[5],
+                'test_R10':test_metrics[6],'test_R20':test_metrics[7],'test_R50':test_metrics[8],
+                'test_P10':test_metrics[9],'test_P20':test_metrics[10],'test_P50':test_metrics[11],
+                'test_M10':test_metrics[12],'test_M20':test_metrics[13],'test_M50':test_metrics[14],
+            })
+            print(test_metrics)
+            
+            if save_mat:
+                if checktosave.update_classify(fold_num, 0, np.asarray([test_metrics[0], test_metrics[2], test_metrics[1]])):
+                    # print('Saving score matrix ...')
+                    if not os.path.exists(f'../results/{n_s}{base_suffix}/pilsl'):
+                        os.makedirs(f'../results/{n_s}{base_suffix}/pilsl')
+                    path = f'../results/{n_s}{base_suffix}/pilsl/pilsl_fold_{fold_num}_pos_neg_{p_n}_{d_s}_{n_s}_classify.npy'
+                    checktosave.save_mat(path, score_mat)
+                if checktosave.update_ranking(fold_num, 0, test_metrics[3:]):
+                    # print('Saving score matrix ...')
+                    path = f'../results/{n_s}{base_suffix}/pilsl/pilsl_fold_{fold_num}_pos_neg_{p_n}_{d_s}_{n_s}_ranking.npy'
+                    checktosave.save_mat(path, score_mat)
+            else:
+                checktosave.update_classify(fold_num, 0, np.asarray([test_metrics[0], test_metrics[2], test_metrics[1]]))
+                checktosave.update_ranking(fold_num, 0, test_metrics[3:])
+                
         pilsl_result_kfold.append(test_metrics)
 
     run.finish()
     # auc f1 aupr N10 N20 N50 R10 R20 R50 P10 P20 P50
-    all_metrics = checktosave.get_all_metrics()
+    if indep_test:
+        all_metrics = checktosave.get_all_indep_test_metrics()
+    else:
+        all_metrics = checktosave.get_all_metrics()
     
     return all_metrics
 

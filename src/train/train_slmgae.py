@@ -10,16 +10,20 @@ from utils.slmgae_utils import load_data, sparse_to_tuple, preprocess_graph, con
 from preprocess import cal_metrics, ChecktoSave
 import os
 import wandb
-os.environ["CUDA_VISIBLE_DEVICES"] = "2"
+os.environ["CUDA_VISIBLE_DEVICES"] = "0"
 
 np.random.seed(456)
 tf.compat.v1.set_random_seed(456)
 
 cuda_device='/gpu:0'
 
-def train_slmgae(parameters, pos_samples, neg_samples, mode=None, save_mat=False):
-    _, _, train_pos_kfold, test_pos_kfold = pos_samples
-    _, _, train_neg_kfold, test_neg_kfold = neg_samples
+def train_slmgae(parameters, pos_samples, neg_samples, mode=None, save_mat=False, ex_compt=None,indep_test=None):
+    if indep_test:
+        _, _, _, train_pos_kfold, valid_pos_kfold, test_pos_kfold = pos_samples
+        _, _, _, train_neg_kfold, valid_neg_kfold, test_neg_kfold = neg_samples
+    else:
+        _, _, train_pos_kfold, test_pos_kfold = pos_samples
+        _, _, train_neg_kfold, test_neg_kfold = neg_samples
 
     kfold = parameters['kfold']
     p_n = parameters['pos_neg']
@@ -37,6 +41,10 @@ def train_slmgae(parameters, pos_samples, neg_samples, mode=None, save_mat=False
     epochs = parameters['epochs']
     dropout = parameters['dropout']
     n_s = parameters['negative_strategy']
+    
+    base_suffix = '_score_mats'
+    if ex_compt:
+        base_suffix = '_score_mats_wo_compt'
     
     if mode=='final_res':
         kfold=1
@@ -128,7 +136,7 @@ def train_slmgae(parameters, pos_samples, neg_samples, mode=None, save_mat=False
 
         # Construct feed dictionary
         feed_dict = construct_feed_dict(supports, features, adj_label, placeholders)
-
+        stop_count = 0
         # Train model
         for epoch in range(epochs):
             t = time.time()
@@ -143,8 +151,8 @@ def train_slmgae(parameters, pos_samples, neg_samples, mode=None, save_mat=False
             })
 
             print("Epoch: " + '%04d' % (epoch + 1) +
-                  " train_loss=" + "{:.5f}".format(avg_cost) +
-                  " time= " + "{:.5f}".format(time.time() - t))
+                    " train_loss=" + "{:.5f}".format(avg_cost) +
+                    " time= " + "{:.5f}".format(time.time() - t))
 
             print('Optimization Finished!')
             feed_dict.update({placeholders['dropout']: 0})
@@ -165,31 +173,79 @@ def train_slmgae(parameters, pos_samples, neg_samples, mode=None, save_mat=False
                 'train_P10':train_metrics[9],'train_P20':train_metrics[10],'train_P50':train_metrics[11],
                 'train_M10':train_metrics[12],'train_M20':train_metrics[13],'train_M50':train_metrics[14],
             })
-
-            test_metrics = cal_metrics(adj_rec, test_pos_kfold[fold_num - 1], test_neg_kfold[fold_num - 1],train_pos_kfold[fold_num - 1])
-            wandb.log({
-                'test_auc':test_metrics[0],'test_f1':test_metrics[1],'test_aupr':test_metrics[2],
-                'test_N10':test_metrics[3],'test_N20':test_metrics[4],'test_N50':test_metrics[5],
-                'test_R10':test_metrics[6],'test_R20':test_metrics[7],'test_R50':test_metrics[8],
-                'test_P10':test_metrics[9],'test_P20':test_metrics[10],'test_P50':test_metrics[11],
-                'test_M10':test_metrics[12],'test_M20':test_metrics[13],'test_M50':test_metrics[14],
-            })
-            # print(test_metrics)
             
-            update_class, update_rank = False, False
-            checktosave.update_classify(fold_num-1, epoch, np.asarray([test_metrics[0], test_metrics[2], test_metrics[1]]))
-                print('Saving score matrix ...')
-                # if not os.path.exists(f'../results/{n_s}_score_mats/slmgae'):
-                    # os.makedirs(f'../results/{n_s}_score_mats/slmgae')
-                # path = f'../results/{n_s}_score_mats/slmgae/slmgae_fold_{fold_num-1}_pos_neg_{p_n}_{d_s}_{n_s}_classify.npy'
-                checktosave.save_mat(path, adj_rec)
-                update_class = True
-            checktosave.update_ranking(fold_num-1, epoch, test_metrics[3:])
-                print('Saving score matrix ...')
-                # path = f'../results/{n_s}_score_mats/slmgae/slmgae_fold_{fold_num-1}_pos_neg_{p_n}_{d_s}_{n_s}_ranking.npy'
-                checktosave.save_mat(path, adj_rec)
-                update_rank = True
+            if indep_test:
+                valid_metrics = cal_metrics(adj_rec, valid_pos_kfold[fold_num - 1], valid_neg_kfold[fold_num - 1],train_pos_kfold[fold_num - 1])
+                wandb.log({
+                    'valid_auc':valid_metrics[0],'valid_f1':valid_metrics[1],'valid_aupr':valid_metrics[2],
+                    'valid_N10':valid_metrics[3],'valid_N20':valid_metrics[4],'valid_N50':valid_metrics[5],
+                    'valid_R10':valid_metrics[6],'valid_R20':valid_metrics[7],'valid_R50':valid_metrics[8],
+                    'valid_P10':valid_metrics[9],'valid_P20':valid_metrics[10],'valid_P50':valid_metrics[11],
+                    'valid_M10':valid_metrics[12],'valid_M20':valid_metrics[13],'valid_M50':valid_metrics[14],
+                })
                 
+                test_metrics = cal_metrics(adj_rec, test_pos_kfold[fold_num - 1], test_neg_kfold[fold_num - 1],train_pos_kfold[fold_num - 1])
+                wandb.log({
+                    'test_auc':test_metrics[0],'test_f1':test_metrics[1],'test_aupr':test_metrics[2],
+                    'test_N10':test_metrics[3],'test_N20':test_metrics[4],'test_N50':test_metrics[5],
+                    'test_R10':test_metrics[6],'test_R20':test_metrics[7],'test_R50':test_metrics[8],
+                    'test_P10':test_metrics[9],'test_P20':test_metrics[10],'test_P50':test_metrics[11],
+                    'test_M10':test_metrics[12],'test_M20':test_metrics[13],'test_M50':test_metrics[14],
+                })
+                
+                update_class, update_rank = False, False
+                if save_mat:
+                    if checktosave.update_classify(fold_num-1, epoch, np.asarray([valid_metrics[0], valid_metrics[2], valid_metrics[1]])):
+                        print('Saving score matrix ...')
+                        if not os.path.exists(f'../results/{n_s}{base_suffix}/slmgae'):
+                            os.makedirs(f'../results/{n_s}{base_suffix}/slmgae')
+                        path = f'../results/{n_s}{base_suffix}/slmgae/slmgae_fold_{fold_num-1}_pos_neg_{p_n}_{d_s}_{n_s}_classify.npy'
+                        checktosave.save_mat(path, adj_rec)
+                        checktosave.update_indep_test_classify(fold_num, 0, np.asarray([test_metrics[0], test_metrics[2], test_metrics[1]]))
+                        update_class = True
+                    if checktosave.update_ranking(fold_num-1, epoch, valid_metrics[3:]):
+                        print('Saving score matrix ...')
+                        path = f'../results/{n_s}{base_suffix}/slmgae/slmgae_fold_{fold_num-1}_pos_neg_{p_n}_{d_s}_{n_s}_ranking.npy'
+                        checktosave.save_mat(path, adj_rec)
+                        checktosave.update_indep_test_ranking(fold_num, 0, test_metrics[3:])
+                        update_rank = True
+                else:
+                    if checktosave.update_classify(fold_num-1, epoch, np.asarray([valid_metrics[0], valid_metrics[2], valid_metrics[1]])):
+                        checktosave.update_indep_test_classify(fold_num-1, epoch, np.asarray([test_metrics[0], test_metrics[2], test_metrics[1]]))
+                        update_class = True
+                    if checktosave.update_ranking(fold_num-1, epoch, valid_metrics[3:]):
+                        checktosave.update_indep_test_ranking(fold_num-1, epoch, test_metrics[3:])
+                        update_rank = True
+            else:
+                test_metrics = cal_metrics(adj_rec, test_pos_kfold[fold_num - 1], test_neg_kfold[fold_num - 1],train_pos_kfold[fold_num - 1])
+                wandb.log({
+                    'test_auc':test_metrics[0],'test_f1':test_metrics[1],'test_aupr':test_metrics[2],
+                    'test_N10':test_metrics[3],'test_N20':test_metrics[4],'test_N50':test_metrics[5],
+                    'test_R10':test_metrics[6],'test_R20':test_metrics[7],'test_R50':test_metrics[8],
+                    'test_P10':test_metrics[9],'test_P20':test_metrics[10],'test_P50':test_metrics[11],
+                    'test_M10':test_metrics[12],'test_M20':test_metrics[13],'test_M50':test_metrics[14],
+                })
+                
+                update_class, update_rank = False, False
+                if save_mat:
+                    if checktosave.update_classify(fold_num-1, epoch, np.asarray([test_metrics[0], test_metrics[2], test_metrics[1]])):
+                        print('Saving score matrix ...')
+                        if not os.path.exists(f'../results/{n_s}{base_suffix}/slmgae'):
+                            os.makedirs(f'../results/{n_s}{base_suffix}/slmgae')
+                        path = f'../results/{n_s}{base_suffix}/slmgae/slmgae_fold_{fold_num-1}_pos_neg_{p_n}_{d_s}_{n_s}_classify.npy'
+                        checktosave.save_mat(path, adj_rec)
+                        update_class = True
+                    if checktosave.update_ranking(fold_num-1, epoch, test_metrics[3:]):
+                        print('Saving score matrix ...')
+                        path = f'../results/{n_s}{base_suffix}/slmgae/slmgae_fold_{fold_num-1}_pos_neg_{p_n}_{d_s}_{n_s}_ranking.npy'
+                        checktosave.save_mat(path, adj_rec)
+                        update_rank = True
+                else:
+                    if checktosave.update_classify(fold_num-1, epoch, np.asarray([test_metrics[0], test_metrics[2], test_metrics[1]])):
+                        update_class = True
+                    if checktosave.update_ranking(fold_num-1, epoch, test_metrics[3:]):
+                        update_rank = True
+            
             if update_class or update_rank:
                 print(test_metrics)
                 print('Refresh the stop count ...')
@@ -201,12 +257,13 @@ def train_slmgae(parameters, pos_samples, neg_samples, mode=None, save_mat=False
                 print('Early stop!')
                 break
                 
-            
-            
         sess.close()
     
     wandb.finish()
     # auc f1 aupr N10 N20 N50 R10 R20 R50 P10 P20 P50
-    all_metrics = checktosave.get_all_metrics()
+    if indep_test:
+        all_metrics = checktosave.get_all_indep_test_metrics()
+    else:
+        all_metrics = checktosave.get_all_metrics()
     
     return all_metrics
