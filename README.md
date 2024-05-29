@@ -96,7 +96,7 @@ This repository is organized as follows:
     - `summary_metrics.ipynb`: Jupyter notebook for summarizing results.
     - `train/`: Training scripts for each model.
     - `utils/`: Utility scripts that support model operations and data manipulation.
-    - `wandb/`: Weights & Biases tracking files for experiment tracking.
+    - `wandb/`: Weights & Biases tracking files for experiment tracking. (It will be automatically created during the runtime.)
     - `preprocess_exp_dep_scores.ipynb`: Notebook detailing preprocessing of experimental dependency scores.
 
 ## How to use
@@ -126,6 +126,7 @@ Follow these steps to download and prepare the training data:
 > \[!TIP]
 >
 > The actual command will depend on how you're downloading files from Google Drive. For the convenience of downloading, the files have been compressed and split.
+
 
 > \[!IMPORTANT]
 >
@@ -164,6 +165,13 @@ python main.py -m SLMGAE \ # Choose the SL prediction method among 'GRSMF', 'SL2
                -pn 1 \ # Set the positive to negative ratio with '1', '5', '20', or '50'.
                --save_mat # Save the score matrix for model predictions. (This may take up a lot of disk space.)
 ```
+
+> \[!TIP]
+>
+> Considering that network conditions may affect the initialization of `wandb`, we recommend keeping `wandb`'s log data locally by using the following command:
+> `wandb offline`
+> When you need to upload this data to the Wandb server, you can use the following command line to upload all local logs to the cloud:
+> `wandb sync --include-offline`
 
 > \[!IMPORTANT]
 >
