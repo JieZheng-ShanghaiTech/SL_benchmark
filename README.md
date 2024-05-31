@@ -139,8 +139,8 @@ Follow these steps to download and prepare the training data:
 
 **Step 2:** Combine the parts into a single archive.
 ```bash
-cat data_large.tar.gz.part* > data_large.tar.gz     # Complete version
-# cat data_small.tar.gz.part* > data_small.tar.gz   # The version without PiLSL database
+cat data_large.tar.gz.part* > data_large.tar.gz     # Complete version, the size after extracted is about 100GB.
+# cat data_small.tar.gz.part* > data_small.tar.gz   # The version without PiLSL database, the size after extracted is about 25GB.
 ```
 **Step 3:** Verify the integrity of the downloaded files.
 ```bash
