@@ -28,5 +28,5 @@ tar -xzvf data_large.tar.gz
 
 > \[!IMPORTANT]
 >
-> The extracted folder will be approximately 90GB in size.
+> The extracted folder (data_large.tar.gz) will be approximately 100GB in size. And the extracted small dataset which excluding PiLSL database (data_small.tar.gz) approximately 25GB.
 > Please ensure there is sufficient disk space.
