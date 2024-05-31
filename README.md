@@ -77,7 +77,7 @@ The following graph depicts the performance of the machine learning models acros
 ### Deep Learning-Based Methods
 | Method       | Paper Title | Article Link |
 |--------------|-------------|--------------|
-| MVGCN    | MAGCN: A Multiple Attention Graph Convolution Networks for Predicting Synthetic Lethality     | [MVGCN](https://doi.org/10.1109/TCBB.2022.3221736)|
+| MAGCN    | MAGCN: A Multiple Attention Graph Convolution Networks for Predicting Synthetic Lethality     | [MAGCN](https://doi.org/10.1109/TCBB.2022.3221736)|
 | MVGCN-iSL    | Multi-view graph convolutional network for cancer cell-specific synthetic lethality prediction     | [MVGCN-iSL](https://doi.org/10.3389/fgene.2022.1103092)|
 
 
