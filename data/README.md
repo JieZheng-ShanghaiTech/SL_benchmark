@@ -10,17 +10,20 @@ Follow these steps to download and prepare the training data:
 >
 > The actual command will depend on how you're downloading files from Google Drive.
 
-**Step 2:** Verify the integrity of the downloaded files.
+**Step 2:** Combine the parts into a single archive.
 ```bash
-md5sum -c md5sum.txt
+cat data_large.tar.gz.part* > data_large.tar.gz     # Complete version
+# cat data_small.tar.gz.part* > data_small.tar.gz   # The version without PiLSL database
 ```
-**Step 3:** Combine the parts into a single archive.
+**Step 3:** Verify the integrity of the downloaded files.
 ```bash
-cat data_split* > data.tar.gz
+md5sum -c data_large.tar.gz.md5
+# md5sum -c data_small.tar.gz.md5 # The version without PiLSL database
 ```
-**Step 4:** Extract the dataset (the extracted folder will be approximately 90GB in size).
+**Step 4:** Extract the dataset.
 ```bash
-tar -xzvf data.tar.gz
+tar -xzvf data_large.tar.gz
+# tar -xzvf data_small.tar.gz # The version without PiLSL database
 ```
 
 > \[!IMPORTANT]
