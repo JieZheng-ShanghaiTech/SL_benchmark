@@ -1,5 +1,7 @@
 # Benchmarking of Machine Learning Methods for Predicting Synthetic Lethality Interactions
 
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.13691648.svg)](https://doi.org/10.5281/zenodo.13691648)
+
 Welcome to the official code repository for the paper "Benchmarking of Machine Learning Methods for Predicting Synthetic Lethality Interactions." This repository hosts the implementations of various machine learning models evaluated in our study, along with the preprocessing methods and training data necessary for synthetic lethality (SL) prediction.
 
 - [Benchmarking of Machine Learning Methods for Predicting Synthetic Lethality Interactions](#benchmarking-of-machine-learning-methods-for-predicting-synthetic-lethality-interactions)
@@ -121,7 +123,7 @@ pip install ./torch_cluster-latest+cu102-cp37-cp37m-linux_x86_64.whl
 
 Follow these steps to download and prepare the training data:
 
-**Step 1:** Download all the data parts from the [Google Drive link](https://drive.google.com/drive/folders/1--hXtibIorfXt3jcKhz4btGH0YjqZafg?usp=sharing) provided in the repository.
+**Step 1:** Download all the data parts from the [Zenodo link](https://doi.org/10.5281/zenodo.13691648) provided in the repository.
 
 > \[!TIP]
 >
