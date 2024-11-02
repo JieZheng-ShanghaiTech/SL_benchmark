@@ -1,6 +1,8 @@
 # Benchmarking of Machine Learning Methods for Predicting Synthetic Lethality Interactions
 
-[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.13691648.svg)](https://doi.org/10.5281/zenodo.13691648)
+Data set: [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.14025191.svg)](https://doi.org/10.5281/zenodo.14025191)
+
+This work has been published in *Nature Communications*, link to article: [![DOI](https://img.shields.io/badge/DOI-10.1038%2Fs41467--024--52900--7-blue)](https://doi.org/10.1038/s41467-024-52900-7)
 
 Welcome to the official code repository for the paper "Benchmarking of Machine Learning Methods for Predicting Synthetic Lethality Interactions." This repository hosts the implementations of various machine learning models evaluated in our study, along with the preprocessing methods and training data necessary for synthetic lethality (SL) prediction.
 
@@ -18,7 +20,8 @@ Welcome to the official code repository for the paper "Benchmarking of Machine L
     - [Enviroment Preparation](#enviroment-preparation)
     - [Data Preparation and Download Instructions](#data-preparation-and-download-instructions)
     - [Run models](#run-models)
-  - [Future Directions](#future-directions)
+  - [Future directions](#future-directions)
+  - [Cite article](#cite-article)
 
 ## About the Study
 Our research conducts a thorough benchmark of recent machine learning methods, including three matrix factorization and eight deep learning models. We rigorously test model performance under diverse data splitting scenarios, negative sample ratios, and sampling methods. The focus is on both classification and ranking tasks, aiming to ascertain the models' generalizability and robustness.
@@ -179,7 +182,22 @@ python main.py -m SLMGAE \ # Choose the SL prediction method among 'GRSMF', 'SL2
 >
 > Ensure you have at least 500GB of free space to store training data and model prediction results
 
-## Future Directions
+## Future directions
 Beyond providing the necessary tools for SL prediction, this repository serves as a foundation for future improvements in the predictive accuracy and interpretability of ML methods in SL discovery.
 
 We encourage the scientific community to leverage this repository for advancing the research in synthetic lethality and the pursuit of precision medicine in oncology.
+
+## Cite article
+
+```bibtex
+@article{feng2024benchmarking,  
+  title={Benchmarking machine learning methods for synthetic lethality prediction in cancer},  
+  author={Feng, Yimiao and Long, Yahui and Wang, He and Ouyang, Yang and Li, Quan and Wu, Min and Zheng, Jie},  
+  journal={Nature Communications},  
+  volume={15},  
+  number={1},  
+  pages={9058},  
+  year={2024},  
+  publisher={Nature Publishing Group UK London}  
+}
+```
